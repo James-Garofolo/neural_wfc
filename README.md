@@ -1,2 +1,3 @@
-# neural_wfc
-Using neural network inferences to generate tile-interactivity rule sets for the Wave Function Collapse algorithm based on a set of example maps.
+# Neural Generation of Tile-Interactivity Rule Sets for Wave Function Collapse
+
+The goal of this project is to train an artificial neural network to produce a rule set for the Wave Function Collapse algorithm (https://github.com/mxgmn/WaveFunctionCollapse.git). 
