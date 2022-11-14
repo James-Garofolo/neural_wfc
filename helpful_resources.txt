@@ -1,0 +1,7 @@
+figured this would be a good place to put things we want to be able to refer back to
+
+all dungeons in one png: https://ian-albert.com/games/legend_of_zelda_maps/zelda-dungeons.png
+
+person who made a tile map of the overworld: https://inventwithpython.com/blog/2012/12/10/8-bit-nes-legend-of-zelda-map-data/
+
+website that has pictures of every tile: https://www.zeldagalaxy.com/sprites-nes-loz/
