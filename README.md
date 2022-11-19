@@ -10,7 +10,7 @@ the way i see this project, there's 8 parts to this project
 * a classifier that recognizes each tile jordan
   * this could be a neural network if we wanted to go easy mode, but i think it would be cool to try and use k means clustering with something like silhouette             detection so we don't have to sit there and manually grab a screenshot of every single tile
   * we wanna use this to turn each of the rooms into a matrix of 1-hot vectors for training data
-* a data prepping function that adds unknown blocks to the maps jim
+* a data prepping function that adds unknown blocks to the maps jim DONEZO
   * basically make a good 10-20 copies of each room matrix, and randomly replace a varying amount of the tiles in each room with the "undecided" token
   * i think the percentage drop rate should be linearly varied from 0% to like 90% as we generate more examples so the distribution of placed tile count in the             training set is uniform, but we also have to make sure that none of the training examples have literally no tiles, or that wouldn't be helpful. 
   * very important that the training data gets order-shuffled, so it gets to see an example of each room at least once, otherwise it won't know how to use a kind of       tile
