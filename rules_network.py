@@ -87,16 +87,88 @@ class whole_map_fc(nn.Module):
 def get_data(path: str):
     pass
 
-def make_data_and_labels(windows):
-    pass
+
+def train(data, labels, model, device, loss_fn, optimizer, batch_size=64):
+    model.train()
+
+    avg_loss = 0
+    counter = 0
+
+    size = data.shape[0]
+    batches = np.ceil(size/batch_size)
+
+    for batch in range(batches):
+        try:
+            X, y = data[batch*batch_size:(batch+1)*batch_size], labels[batch*batch_size:(batch+1)*batch_size]
+
+        except IndexError:
+            X, y = data[batch*batch_size:-1], labels[batch*batch_size:-1]
+
+        X, y = X.to(device), y.to(device)
+
+        # Compute prediction error
+        pred = model(X)
+        loss = loss_fn(pred, y)
+
+        # Backpropagation
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        if batch % 100 == 0:
+            loss, current = loss.item(), batch * len(X)
+            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+            avg_loss += loss
+            counter += 1
+
+    return avg_loss/counter
 
 
+def test(data, labels, model, device, loss_fn):
+    
+    model.eval()
+    size = data.shape[0]
+    with torch.no_grad():
+        X = data
+        y = labels
+        X, y = X.to(device), y.to(device)
+        pred = model(X)
+        test_loss = loss_fn(pred, y).item()
+        correct = (pred.argmax(1) == y).type(torch.float).sum().item()
+    test_loss /= size
+    correct /= size
+    print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+    return 100*correct, loss
 
 
 if __name__ == "__main__":
     full_windows = get_data("")
-    windows = add_unknowns(full_windows)
+    data_windows, label_windows = add_unknowns(full_windows)
 
-    model = whole_map_fc()
+    train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_windows, test_size=0.1)
+    
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Using {device} device")
+
+    model = whole_map_fc(label_windows.shape[1], label_windows.shape[2], label_windows.shape[3])
     loss = nn.CrossEntropyLoss()
     optim = torch.optim.Adam(lr=0.001, weight_decay=1e-5)
+
+
+    best_loss = None
+    best_acc = 0
+    epochs = 20
+    for t in range(epochs):
+        print(f"Epoch {t+1}\n-------------------------------")
+        train_loss = train(train_data, train_labels, model, device, loss, optim)
+        test_acc, test_loss = test(val_data, val_labels, model, device, loss)
+        if (best_loss == None) or (best_loss > test_loss) or (best_acc < test_acc):
+            best_acc = test_acc
+            best_loss = test_loss
+            with open('rules_gen_fc.pt', 'wb') as f:
+                torch.save(model, f)
+        
+        else:
+            optim.defaults['lr'] /= 2
+        
+    print("Done!")

@@ -24,17 +24,20 @@ def add_unknowns_to_one(in_map: np.array, num_out_maps: int):
 
 def add_unknowns(in_maps: np.array, num_out_maps: int):
     out_maps = []
+    label_maps = []
     for map in in_maps:
         out_maps.append(add_unknowns_to_one(map, num_out_maps))
+        label_maps.append(np.tile(map,[num_out_maps+1,*[1]*len(map.shape)]))
 
+    print(out_maps[0].shape, label_maps[0].shape)
     out_maps = np.concatenate(out_maps)
-    return out_maps
+    label_maps = np.concatenate(label_maps)
+    return out_maps, label_maps
 
 
 if __name__ == "__main__":
     test = np.zeros((10,5,5,3))
     test[:,:,1] += 1
 
-    outs = add_unknowns(test, 2)
-    for a, o in enumerate(outs):
-        print(a, o)
+    outs, labels = add_unknowns(test, 2)
+    print(outs.shape, labels.shape)
