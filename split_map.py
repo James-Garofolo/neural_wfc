@@ -35,9 +35,9 @@ def main():
 	tiles_csv_path = os.path.join(DIR_DATASRC, 'zelda_overworld_tiles.csv')
 	img_path = os.path.join(DIR_DATASRC, 'zelda_overworld_image.png')
 	
-	csv_df = pd.read_csv(tiles_csv_path, header=None).transpose()
+	csv_df = pd.read_csv(tiles_csv_path, header=None).astype(str).transpose()
 	
-	all_tile_names = csv_df.stack().unique().astype(str)
+	all_tile_names = csv_df.stack().unique()
 	all_tile_names.sort()
 	# print(len(all_tile_names))
 	
