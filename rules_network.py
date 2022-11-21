@@ -8,6 +8,7 @@ from torchvision.transforms import ToTensor
 from sklearn.model_selection import train_test_split
 from torch.nn import functional as func
 from add_unknowns import add_unknowns
+import os
 
 class one_tile_fc(nn.Module):
     def __init__(self, columns, rows, tiles) -> None:
@@ -88,8 +89,22 @@ def get_data(path: str):
     """
     getting in one 2d array of 1d one-hot vectors, need to open for each file and turn them into
     """
+    maps = []
     for a in range(128):
-        map = np.load(path, allow_pickle=True)
+        map = np.load(f'{path}/{a}.npy', allow_pickle=True)
+        columns = []
+        length = 0
+        for column in map:
+            rows = []
+            for row in column:
+                if length == 0:
+                    length = row.size
+                rows.append(np.argmax(row))
+            
+            columns.append(np.array(rows))
+        maps.append(np.stack(columns))
+    maps = np.stack(maps)
+    return maps, length
 
 
 def train(data, labels, model, device, loss_fn, optimizer, batch_size=64):
@@ -146,8 +161,10 @@ def test(data, labels, model, device, loss_fn):
 
 
 if __name__ == "__main__":
-    full_windows = get_data("")
-    data_windows, label_windows = add_unknowns(full_windows)
+    full_windows, max_id = get_data(os.getcwd() + "/data/map_vectors/numpy/")
+    print("data in: ", full_windows.shape)
+    data_windows, label_windows = add_unknowns(full_windows, 20, max_id)
+    print("with unknowns added: ", data_windows.shape, label_windows.shape)
 
     train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_windows, test_size=0.1)
     

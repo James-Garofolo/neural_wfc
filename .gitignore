@@ -1,6 +1,6 @@
 data
 *.psd
-
+__pycache__
 test.py
 small_test.py
 tempCodeRunnerFile.py
