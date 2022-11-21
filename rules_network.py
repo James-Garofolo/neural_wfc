@@ -85,7 +85,11 @@ class whole_map_fc(nn.Module):
 
 
 def get_data(path: str):
-    pass
+    """
+    getting in one 2d array of 1d one-hot vectors, need to open for each file and turn them into
+    """
+    for a in range(128):
+        map = np.load(path, allow_pickle=True)
 
 
 def train(data, labels, model, device, loss_fn, optimizer, batch_size=64):
