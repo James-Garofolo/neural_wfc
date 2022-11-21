@@ -1,0 +1,21 @@
+{
+	neighbors: {
+		'left-right': [
+			['49', '4a'], // stone + tl corner
+			['4a', '0e'], // tl corner + pathway
+		],
+		'up-down': [
+			['49', '4a'], // stone + tl corner
+			['4a', '0e'], // tl corner + pathway
+		],
+		independent: [
+			['0e', '0e'], // gray pathway
+			['21', '0e'], // grave crosses
+			['08', '08'], // gray snowball thing
+			['08', '0e'], // gray snowball + pathway
+			['08', '49'], // snowball + stone
+			['49', '49'], // stone
+			['49', '0e'], // stone + path
+		]
+	}
+}
