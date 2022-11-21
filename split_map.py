@@ -2,6 +2,7 @@ import os, sys, pathlib, math
 from PIL import Image, ImageDraw
 import pandas as pd
 import numpy as np
+from hex_onehot import ONEHOT_LENGTH, hex_to_onehot
 
 # number of tiles in the overworld
 NUM_MAPS_X = 16
@@ -24,8 +25,6 @@ DIR_MAPVECTORS_OUTPUT = os.path.join(DIR_DATA, 'map_vectors')
 DIR_MAPVECTORS_CSV_OUTPUT = os.path.join(DIR_MAPVECTORS_OUTPUT, 'csv')
 DIR_MAPVECTORS_NP_OUTPUT = os.path.join(DIR_MAPVECTORS_OUTPUT, 'numpy')
 
-# length of the onehot vector
-ONEHOT_LENGTH = int('9d', 16)
 
 def main():
 	# create output path(s)
@@ -101,11 +100,6 @@ def main():
 	# 		this_map = img.crop(box)
 	# 		this_map.save(os.path.join(DIR_MAP_OUTPUT, f'{this_idx}.png'), 'PNG')
 	
-	def hex_to_onehot(hex: str):
-		ret = np.zeros(ONEHOT_LENGTH)
-		thisInt = int(hex, 16) - 1 # 0-based
-		ret[thisInt] = 1
-		return ret
 	
 	print('Creating individual map files')
 	for map_y in range(NUM_MAPS_Y):
