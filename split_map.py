@@ -71,7 +71,7 @@ def main():
 		# Save the tiles
 		for tile_name in tile_sprite_dict:
 			this_tile: Image = tile_sprite_dict[tile_name]
-			this_tile.save(os.path.join(DIR_TILES_OUTPUT, f'{tile_name}.png'), 'PNG')
+			this_tile.save(os.path.join(DIR_TILES_OUTPUT, f'{tile_name:02}.png'), 'PNG')
 	
 	print('Creating complete map image')
 	# Recreate a complete map from our new tile sprites

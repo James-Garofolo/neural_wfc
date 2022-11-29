@@ -8,8 +8,32 @@ import numpy as np
 # 			ret = ret - 2
 # 	return f'{ret:02x}'
 
+# # manually skips hex codes for tiles that were not included in the map
+# def our_hex_to_shortened_hex(hex: str):
+# 	# thisInt = int(zelda_hex_to_our_hex(hex), 16)
+# 	thisInt = int(hex, 16)
+# 	ret = thisInt
+# 	if thisInt >= 0x01: ret = ret - 1
+# 	if thisInt >= 0x06: ret = ret - 1
+# 	if thisInt >= 0x0c: ret = ret - 2
+# 	if thisInt >= 0x0f: ret = ret - 1
+# 	if thisInt >= 0x11: ret = ret - 1
+# 	if thisInt >= 0x16: ret = ret - 1
+# 	if thisInt >= 0x21: ret = ret - 3
+# 	if thisInt >= 0x46: ret = ret - 1
+# 	if thisInt >= 0x4b: ret = ret - 3
+# 	if thisInt >= 0x51: ret = ret - 9
+# 	if thisInt >= 0x5d: ret = ret - 3
+# 	if thisInt >= 0x63: ret = ret - 9
+# 	if thisInt >= 0x6f: ret = ret - 3
+# 	if thisInt >= 0x75: ret = ret - 9
+# 	if thisInt >= 0x86: ret = ret - 2
+# 	if thisInt >= 0x8a: ret = ret - 4
+	
+# 	return f'{ret:02x}'
+
 # length of the onehot vector
-ONEHOT_LENGTH = int('8f', 16)
+ONEHOT_LENGTH = int('59', 16)
 
 # Convert a zelda tile hex string (2 characters) to its corresponding NumPy onehot
 def hex_to_onehot(hex: str):
@@ -34,17 +58,20 @@ def multihot_to_hex(multihot: np.ndarray):
 	ret = []
 	for thisInt in where[0]:
 		ret.append(f'{thisInt:02x}')
-	return np.ndarray(x, dtype=str)
+	return np.ndarray(ret, dtype=str)
 
 def hex_to_multihot(hexes: np.ndarray):
 	pass
 
 # tests
 if __name__ == "__main__":
-	print(onehot_to_hex(hex_to_onehot('01')))
-	print(onehot_to_hex(hex_to_onehot('05')))
-	print(onehot_to_hex(hex_to_onehot('20')))
-	print(onehot_to_hex(hex_to_onehot('7a')))
-	print(onehot_to_hex(hex_to_onehot('9d')))
-	print(zelda_hex_to_our_hex('14'))
-	print(zelda_hex_to_our_hex('28'))
+	# print(onehot_to_hex(hex_to_onehot('01')))
+	# print(onehot_to_hex(hex_to_onehot('05')))
+	# print(onehot_to_hex(hex_to_onehot('20')))
+	# print(onehot_to_hex(hex_to_onehot('7a')))
+	# print(onehot_to_hex(hex_to_onehot('9d')))
+	# print(zelda_hex_to_our_hex('14'))
+	# print(zelda_hex_to_our_hex('28'))
+	for i in range(0x8f):
+		hex = f'{i:02x}'
+		print(f'{hex}: {our_hex_to_shortened_hex(hex)}')
