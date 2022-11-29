@@ -191,6 +191,7 @@ if __name__ == "__main__":
     print(f"Using {device} device")
 
     model = whole_map_fc(label_windows.shape[1], label_windows.shape[2], max_id+1, 0.5)
+    model.to(device)
     loss = nn.BCELoss()
     optim = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
 
