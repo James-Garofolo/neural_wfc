@@ -114,21 +114,24 @@ if __name__ == '__main__':
 	
 	model.to('cpu') # just run on cpu to keep things simpler
 	
+	PATH_TILE = 1 # index of the walkable path tile
+	
 	# Get the initial board state
 	collapsed_tiles = wfc.first_step()
+	
+	collapsed_tiles[0, 5] = PATH_TILE # manually insert a path tile in the left edge
 	
 	for step in range(10):
 		print(f'\nSTEP {step}')
 		batch = torch.from_numpy(np.array([collapsed_tiles], dtype=int))
 		
+		print(batch)
+		print(batch.shape)
 		# Make prediction
 		nn_prediction = model(batch)[0]
 		# print('Prediction:', nn_prediction[3, 0]) 
 		
-		if step == 0:
-			threshold = torch.max(nn_prediction).item() * 0.9
-		else:
-			threshold = 0.5
+		threshold = torch.max(nn_prediction).item() * 0.9
 		
 		# Transform tensors that are > 0.5 into 1, and <= 0.5 into 0
 		nn_prediction = torch.threshold(nn_prediction, threshold, 0)
