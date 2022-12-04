@@ -51,22 +51,24 @@ class wave_function_collapse:
 	Returns the x and y indices of those tiles
 	"""
 	def find_lowest_entropy(self):
-		lowest_entropy = 9999999
+		lowest_entropy = self.undefined_tile + 1 # bigger than the highest possible entropy
 		lowest_coords = []
 		for y in range(len(self.possibilities)):
 			column: np.ndarray = self.possibilities[y]
 			for x in range(len(column)):
-				this_multihot: np.ndarray = column[x]
-				# Find the indices where this multihot is 1 / true
-				where = np.where(this_multihot == 1)[0]
-				this_entropy = len(where)
-				# if this is the new lowest, reset lowest_coords
-				if (this_entropy > 0) and (this_entropy < lowest_entropy):
-					lowest_coords = [(y, x)]
-					lowest_entropy = this_entropy
-				# if this has the same entropy as lowest, simply append
-				elif this_entropy == lowest_entropy:
-					lowest_coords.append((y, x))
+				if self.collapsed_tiles[y,x] == self.undefined_tile:
+					this_multihot: np.ndarray = column[x]
+					# Find the indices where this multihot is 1 / true
+					where = np.where(this_multihot == 1)[0]
+					this_entropy = len(where)
+					#print(this_entropy)
+					# if this is the new lowest, reset lowest_coords
+					if (this_entropy > 0) and (this_entropy < lowest_entropy):
+						lowest_coords = [(y, x)]
+						lowest_entropy = this_entropy
+					# if this has the same entropy as lowest, simply append
+					elif this_entropy == lowest_entropy:
+						lowest_coords.append((y, x))
 		# If there are no tiles with entropy of 1, then pick just one randomly
 		print(f'Lowest entropy is {lowest_entropy}')
 		if lowest_entropy > 1:
@@ -110,7 +112,7 @@ if __name__ == '__main__':
 	# Load the PyTorch model
 	model_file = os.path.join(DIRNAME, 'rules_gen_fc_long.pt')
 	with open(model_file, 'rb') as f:
-		model: whole_map_fc = torch.load(f)
+		model: whole_map_fc = torch.load(f, map_location=torch.device('cpu'))
 	
 	model.to('cpu') # just run on cpu to keep things simpler
 	
@@ -119,24 +121,31 @@ if __name__ == '__main__':
 	# Get the initial board state
 	collapsed_tiles = wfc.first_step()
 	
-	collapsed_tiles[0, 5] = PATH_TILE # manually insert a path tile in the left edge
+	collapsed_tiles[0, 0] = 45 # manually insert a path tile in the left edge
 	
 	for step in range(10):
 		print(f'\nSTEP {step}')
 		batch = torch.from_numpy(np.array([collapsed_tiles], dtype=int))
 		
-		print(batch)
-		print(batch.shape)
+		#print(batch)
+		#print(batch.shape)
 		# Make prediction
-		nn_prediction = model(batch)[0]
+		nn_prediction = model(batch)[0].detach().numpy()
 		# print('Prediction:', nn_prediction[3, 0]) 
 		
-		threshold = torch.max(nn_prediction).item() * 0.9
-		
+		#threshold = (torch.max(nn_prediction).item()*0.9 + torch.min(nn_prediction).item()*0.1)
+		#print(threshold, torch.max(nn_prediction).item())
 		# Transform tensors that are > 0.5 into 1, and <= 0.5 into 0
-		nn_prediction = torch.threshold(nn_prediction, threshold, 0)
-		nn_prediction = torch.ceil(nn_prediction)
-		tile_multihot = nn_prediction.detach().numpy()
+		#nn_prediction = torch.threshold(nn_prediction, threshold, 0)
+		#nn_prediction = torch.ceil(nn_prediction)
+		#tile_multihot = nn_prediction.detach().numpy()
+		print(nn_prediction[0,0])
+		threshold = np.max(nn_prediction, 2)*0.999
+		threshold = np.moveaxis(np.tile(threshold, (nn_prediction.shape[2], 1, 1)), 0, -1)
+		tile_multihot = np.zeros_like(nn_prediction)
+		np.greater(nn_prediction,threshold,tile_multihot)
+
+		
 		
 		# Perform WFC computations
 		collapsed_tiles = wfc.step(tile_multihot)
