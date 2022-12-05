@@ -110,7 +110,7 @@ if __name__ == '__main__':
 	wfc = wave_function_collapse(map_zero.shape, ONEHOT_LENGTH)
 	
 	# Load the PyTorch model
-	model_file = os.path.join(DIRNAME, 'rules_gen_fc_long.pt')
+	model_file = os.path.join(DIRNAME, 'rules_gen_fc_no_dupes.pt')
 	with open(model_file, 'rb') as f:
 		model: whole_map_fc = torch.load(f, map_location=torch.device('cpu'))
 	
@@ -121,9 +121,9 @@ if __name__ == '__main__':
 	# Get the initial board state
 	collapsed_tiles = wfc.first_step()
 	
-	collapsed_tiles[0, 0] = 45 # manually insert a path tile in the left edge
-	
-	for step in range(10):
+	#collapsed_tiles[0, 0] = 90 # manually insert a path tile in the left edge
+	step = 0
+	while 89 in collapsed_tiles:
 		print(f'\nSTEP {step}')
 		batch = torch.from_numpy(np.array([collapsed_tiles], dtype=int))
 		
@@ -133,14 +133,8 @@ if __name__ == '__main__':
 		nn_prediction = model(batch)[0].detach().numpy()
 		# print('Prediction:', nn_prediction[3, 0]) 
 		
-		#threshold = (torch.max(nn_prediction).item()*0.9 + torch.min(nn_prediction).item()*0.1)
-		#print(threshold, torch.max(nn_prediction).item())
-		# Transform tensors that are > 0.5 into 1, and <= 0.5 into 0
-		#nn_prediction = torch.threshold(nn_prediction, threshold, 0)
-		#nn_prediction = torch.ceil(nn_prediction)
-		#tile_multihot = nn_prediction.detach().numpy()
-		print(nn_prediction[0,0])
-		threshold = np.max(nn_prediction, 2)*0.999
+		
+		threshold = np.mean(nn_prediction, -1)
 		threshold = np.moveaxis(np.tile(threshold, (nn_prediction.shape[2], 1, 1)), 0, -1)
 		tile_multihot = np.zeros_like(nn_prediction)
 		np.greater(nn_prediction,threshold,tile_multihot)
@@ -149,8 +143,14 @@ if __name__ == '__main__':
 		
 		# Perform WFC computations
 		collapsed_tiles = wfc.step(tile_multihot)
+		"""for a, column in enumerate(collapsed_tiles):
+			for b, val in enumerate(column):
+				if val != 89:
+					print(nn_prediction[a,b])"""
 		
+		#1/0
 		# print('Collapsed tiles:', collapsed_tiles[3, 0])
 		
 		# Generate an image so we can visualize what the current map looks like
 		generate_map_image.from_indexes(collapsed_tiles, os.path.join(DIR_DATA, f'step_{step}.png'))
+		step += 1

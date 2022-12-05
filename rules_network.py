@@ -1,16 +1,8 @@
-from torch.nn.modules.activation import LogSoftmax
 import numpy as np
 import torch
 from torch import nn
-from torch.utils.data import DataLoader
-from torch.utils.data import Subset
-from torchvision import datasets
-from torchvision.transforms import ToTensor
 from sklearn.model_selection import train_test_split
-from torch.nn import functional as func
 import os
-import math
-from add_unknowns import add_unknowns
 
 """
 change fc network guy to use embeddings with index inputs rather than one-hot vector inputs
@@ -34,8 +26,7 @@ class whole_map_fc(nn.Module):
         self.top = nn.Sequential(
             nn.Linear(columns*rows*embedding_dim, int(columns*rows*embedding_dim*hidden_ratio)),
             nn.ReLU(),
-            nn.Linear(int(columns*rows*embedding_dim*hidden_ratio), columns*rows*(tiles-1)),
-            nn.ReLU()
+            nn.Linear(int(columns*rows*embedding_dim*hidden_ratio), columns*rows*tiles),
         )
 
         self.softmax = nn.Softmax(3)
@@ -57,13 +48,12 @@ class whole_map_fc(nn.Module):
         out_probs = self.top(maps)
         #print("inferred", out_probs.shape)
         #outs = self.softmax(out_probs.view(-1,self.columns,self.rows,self.tiles-1))
-        outs = self.logify(out_probs.view(-1,self.columns,self.rows,self.tiles-1))
+        outs = self.logify(out_probs.view(-1,self.columns,self.rows,self.tiles))
+        #outs = out_probs.view(-1,self.columns,self.rows,self.tiles)
         #print("softmaxed", outs.shape, torch.max(outs))
 
 
         return outs
-
-
 
 def get_data(path: str):
     """
@@ -78,7 +68,7 @@ def get_data(path: str):
             rows = []
             for row in column:
                 if length == 0:
-                    length = row.size
+                    length = row.size-1
                 rows.append(np.argmax(row))
             
             columns.append(np.array(rows))
@@ -88,7 +78,7 @@ def get_data(path: str):
 
 
 def idx_to_one_hot(ids: np.array, max_id):
-    outs = np.zeros((ids.shape[0], ids.shape[1], ids.shape[2], max_id), dtype=np.single)
+    outs = np.zeros((ids.shape[0], ids.shape[1], ids.shape[2], max_id+1), dtype=np.intc)
     for a, map in enumerate(ids):
         for b, row in enumerate(map):
             for c, id in enumerate(row):
@@ -96,6 +86,45 @@ def idx_to_one_hot(ids: np.array, max_id):
 
     return outs
 
+
+def add_unknowns_to_one(in_map: np.array, num_out_maps: int, max_id: int):
+    """
+    in_map should be of shape (column, row) containing tile id's
+    """
+    
+    columns = in_map.shape[0]
+    rows = in_map.shape[1]
+    
+    out_maps = [np.copy(in_map)]
+    for a in range(num_out_maps):
+        mask = np.random.uniform(0,1,(columns,rows)) > a/num_out_maps
+        out_map = np.copy(in_map)
+        out_map[mask] = max_id + 1
+        out_maps.append(out_map)
+
+    out_maps = np.array(out_maps)
+    return out_maps
+
+def add_unknowns(in_maps: np.array, num_out_maps: int, max_id: int):
+    out_maps = []
+    label_maps = []
+    overlap_count = 0
+    for a, map in enumerate(in_maps):
+        #out_maps.append(add_unknowns_to_one(map, num_out_maps, max_id))
+        out_map = add_unknowns_to_one(map, num_out_maps, max_id)
+        label_maps.append(idx_to_one_hot(np.tile(map,[num_out_maps+1,*[1]*len(map.shape)]), max_id))
+        for a, sample in enumerate(out_map):
+            for b, other_map in enumerate(out_maps):
+                if np.array_equal(sample, other_map[a]):
+                    label_maps[b][a] |= label_maps[-1][a]
+                    label_maps[-1][a] = label_maps[b][a]
+                    overlap_count += 1
+        out_maps.append(out_map)
+
+    print(f"found {overlap_count} overlaps")
+    out_maps = np.concatenate(out_maps)
+    label_maps = np.concatenate(label_maps).astype(np.single)
+    return out_maps, label_maps
 
 
 def train(data, labels, model, device, loss_fn, optimizer, verbose=True, batch_size=64):
@@ -177,29 +206,25 @@ def test(data, labels, model, device, loss_fn):
 if __name__ == "__main__":
     full_windows, max_id = get_data(os.getcwd() + "/data/map_vectors/numpy/")
     print("data in: ", full_windows.shape)
-    data_windows, label_windows = add_unknowns(full_windows, 100, max_id)
+    data_windows, label_windows = add_unknowns(full_windows, 200, max_id)
     print("with unknowns added: ", data_windows.shape, label_windows.shape)
-    print(max_id)
+    print("max id:", max_id)
 
     train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_windows, test_size=0.1)
-    
-    train_labels = idx_to_one_hot(train_labels, max_id)
-    val_labels = idx_to_one_hot(val_labels, max_id)
     
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
 
-    model = whole_map_fc(label_windows.shape[1], label_windows.shape[2], max_id+1, 0.5)
-    model.to(device)
+    model = whole_map_fc(label_windows.shape[1], label_windows.shape[2], max_id+1, 0.5).to(device)
     loss = nn.BCELoss()
-    optim = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
+    optim = torch.optim.Adam(model.parameters(), lr=0.001)
 
     print('starting to train')
 
     best_loss = None
     best_acc = 0
-    epochs = 50
+    epochs = 20
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
         train_acc, train_loss = train(train_data, train_labels, model, device, loss, optim, False)
@@ -207,7 +232,7 @@ if __name__ == "__main__":
         if (best_loss == None) or (best_loss > test_loss) or (test_acc > best_acc):
             best_loss = test_loss
             best_acc = test_acc
-            with open('rules_gen_fc_long.pt', 'wb') as f:
+            with open('rules_gen_fc_no_dupes.pt', 'wb') as f:
                 torch.save(model, f)
         
         else:
