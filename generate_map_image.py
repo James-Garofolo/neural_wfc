@@ -49,6 +49,18 @@ def from_indexes(map_indexes: np.ndarray, path: str):
 
 if __name__ == "__main__":
 	
-	map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '0.npy'), allow_pickle=True)
+	map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '34.npy'), allow_pickle=True)
+	
+	print(map_zero.shape)
+	cols = []
+	for col in map_zero:
+		newCol = []
+		for row in col:
+			thisRow = int(onehot_to_hex(row), 16)
+			newCol.append(thisRow)
+		cols.append(newCol)
+	map_zero_indexes = np.array(cols)
+	print(map_zero_indexes.shape)
 	
 	from_onehot(map_zero, os.path.join(DIR_DATA, 'map0.png'))
+	from_indexes(map_zero_indexes, os.path.join(DIR_DATA, 'map0-2.png'))
