@@ -18,11 +18,14 @@ class wave_function_collapse:
 		map_shape: sdfdsf
 		num_possible_tiles: sdfsdf
 	"""
-	def __init__(self, map_shape, num_possible_tiles) -> None:
+	def __init__(self, map_shape, num_possible_tiles, starting_tiles = None) -> None:
 		self.rules = []
 		self.undefined_tile = num_possible_tiles # update later
 		self.possibilities = np.ones((map_shape[0], map_shape[1], num_possible_tiles))
-		self.collapsed_tiles = np.ones(map_shape, dtype=int) * (self.undefined_tile)
+		if starting_tiles == None:
+			self.collapsed_tiles = np.ones(map_shape, dtype=int) * (self.undefined_tile)
+		else:
+			self.collapsed_tiles = starting_tiles
 	
 	"""
 	Returns the first state of the board
@@ -148,10 +151,11 @@ class wave_function_collapse:
 		lowest_coords = np.array(np.where(entropies == lowest_entropy)).T # get entropy coords as pair of column vectors
 		# If there are no tiles with entropy of 1, then pick just one randomly
 		print(f'Lowest entropy is {lowest_entropy}')
-		if lowest_entropy > 1:
+		"""if lowest_entropy > 1:
 			return [lowest_coords[random.randint(0, len(lowest_coords)-1)]]
 		else:
-			return lowest_coords
+			return lowest_coords"""
+		return [lowest_coords[random.randint(0, len(lowest_coords)-1)]]
 
 	def step_with_rules(self):
 		lowest_entropy_coords = self.run_rules()
@@ -231,5 +235,5 @@ if __name__ == '__main__':
 		collapsed_tiles = wfc.step_with_rules()
 		
 		# Generate an image so we can visualize what the current map looks like
-		generate_map_image.from_indexes(collapsed_tiles, os.path.join(DIR_DATA, f'step_{step}.png'))
+		generate_map_image.from_indexes(collapsed_tiles+1, os.path.join(DIR_DATA, f'step_{step}.png'))
 		step += 1

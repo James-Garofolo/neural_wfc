@@ -155,11 +155,18 @@ def train(data, labels, model, device, loss_fn, optimizer, verbose=True, batch_s
         pred = model(X)
         
         loss = loss_fn(pred, y)
-        tiles = torch.argmax(pred, dim=3)
-        label_tiles = torch.argmax(y, dim=3)
+        pred = pred.cpu().detach().numpy()
+        threshold = np.mean(pred, -1)
+        threshold = np.moveaxis(np.tile(threshold, (pred.shape[-1],*[1]*(len(pred.shape)-1))), 0, -1)
+        tile_multihot = np.zeros_like(pred, dtype=np.intc)
+        np.greater(pred,threshold,tile_multihot)
+        label_tiles = y.cpu().detach().numpy().astype(np.intc)
+
+        correct_tiles = ~(tile_multihot ^ label_tiles)&1 # set to 1 if both are same
         
-        correct += (tiles==label_tiles).type(torch.float).sum().item()
-        classified += torch.numel(tiles)
+        correct += np.sum(correct_tiles)
+        classified += correct_tiles.size
+
         # Backpropagation
         optimizer.zero_grad()
         loss.backward()
@@ -193,11 +200,18 @@ def test(data, labels, model, device, loss_fn):
         test_loss = loss_fn(pred, y).item()
         test_loss /= size
         
-        tiles = torch.argmax(pred, dim=3)
-        label_tiles = torch.argmax(y, dim=3)
+        pred = pred.cpu().detach().numpy()
+        threshold = np.mean(pred, -1)
+        threshold = np.moveaxis(np.tile(threshold, (pred.shape[-1],*[1]*(len(pred.shape)-1))), 0, -1)
+        tile_multihot = np.zeros_like(pred, dtype=np.intc)
+        np.greater(pred,threshold,tile_multihot)
+        label_tiles = y.cpu().detach().numpy().astype(np.intc)
         
-        correct += (tiles==label_tiles).type(torch.float).sum().item()
-        classified += torch.numel(tiles)
+        correct_tiles = ~(tile_multihot ^ label_tiles)&1 # set to 1 if both are same
+        
+        correct += np.sum(correct_tiles)
+        classified += correct_tiles.size
+
     print(f"Avg loss: {test_loss:>8f} \n")
     print(f"Avg acc: {correct/classified}\n")
     return correct/classified, test_loss
@@ -206,7 +220,7 @@ def test(data, labels, model, device, loss_fn):
 if __name__ == "__main__":
     full_windows, max_id = get_data(os.getcwd() + "/data/map_vectors/numpy/")
     print("data in: ", full_windows.shape)
-    data_windows, label_windows = add_unknowns(full_windows, 200, max_id)
+    data_windows, label_windows = add_unknowns(full_windows, 400, max_id)
     print("with unknowns added: ", data_windows.shape, label_windows.shape)
     print("max id:", max_id)
 
