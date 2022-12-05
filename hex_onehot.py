@@ -33,12 +33,12 @@ import numpy as np
 # 	return f'{ret:02x}'
 
 # length of the onehot vector
-ONEHOT_LENGTH = int('59', 16)
+ONEHOT_LENGTH = int('59', 16) + 1
 
 # Convert a zelda tile hex string (2 characters) to its corresponding NumPy onehot
 def hex_to_onehot(hex: str):
 	onehot = np.zeros(ONEHOT_LENGTH)
-	thisInt = int(hex, 16) - 1 # 0-based
+	thisInt = int(hex, 16)
 	onehot[thisInt] = 1
 	return onehot
 
@@ -48,7 +48,7 @@ def onehot_to_hex(onehot: np.ndarray):
 	# make sure there is exactly one instance where onehot == 1
 	if not len(where) == 1:
 		raise RuntimeError(f'Onehot is not onehot! np.where(onehot == 1)[0] = {where}')
-	thisInt = where[0] + 1
+	thisInt = where[0]
 	return f'{thisInt:02x}'
 
 def multihot_to_hex(multihot: np.ndarray):
