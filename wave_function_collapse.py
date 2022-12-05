@@ -19,9 +19,9 @@ class wave_function_collapse:
 		num_possible_tiles: sdfsdf
 	"""
 	def __init__(self, map_shape, num_possible_tiles) -> None:
-		self.manual_rules = []
+		self.rules = []
 		self.undefined_tile = num_possible_tiles # update later
-		self.possibilities = np.zeros((map_shape[0], map_shape[1], num_possible_tiles))
+		self.possibilities = np.ones((map_shape[0], map_shape[1], num_possible_tiles))
 		self.collapsed_tiles = np.ones(map_shape, dtype=int) * (self.undefined_tile)
 	
 	"""
@@ -45,6 +45,7 @@ class wave_function_collapse:
 		self.collapse_state(lowest_entropy_coords)
 		
 		return self.collapsed_tiles
+		
 	
 	"""
 	Finds the tile(s) with the lowest entropy
@@ -69,6 +70,18 @@ class wave_function_collapse:
 					# if this has the same entropy as lowest, simply append
 					elif this_entropy == lowest_entropy:
 						lowest_coords.append((y, x))
+
+		"""
+		what up it's jim, i figured out this can be done like this
+
+		entropies = np.sum(self.possibilities, -1) # sum across tile vectors to get entropy calcs
+		entropies[self.collapsed_tiles != self.undefined_tile] = self.undefined_tile # make sure filled tiles don't get counted
+		lowest_entropy = np.min(entropies) # find lowest entropy
+		lowest_coords = np.array(np.where(entropies == lowest_entropy)).T # get entropy coords as pair of column vectors
+
+		and it's faster cause numpy is done in c. left it alone though cause i'm not a fan of jordan code erasure
+		"""
+
 		# If there are no tiles with entropy of 1, then pick just one randomly
 		print(f'Lowest entropy is {lowest_entropy}')
 		if lowest_entropy > 1:
@@ -82,15 +95,15 @@ class wave_function_collapse:
 	"""
 	def collapse_state(self, coords_to_collapse):
 		print(f'Collapsing {len(coords_to_collapse)} tiles')
-		for coords in coords_to_collapse:
-			multihot_to_collapse = self.possibilities[coords]
+		for x, y in coords_to_collapse:
+			multihot_to_collapse = self.possibilities[x, y]
 			where = np.where(multihot_to_collapse == 1)[0]
 			# Collapse to a random index within the list of indices that == 1
 			# print(self.possibilities[coords_to_collapse])
 			
 			collapsed_index = where[random.randint(0, len(where) - 1)]
 			# Set collapsed_tiles to the new tile index at these coords
-			self.collapsed_tiles[coords] = collapsed_index
+			self.collapsed_tiles[x, y] = collapsed_index
 			# print(f'Collapsed tile {coords} into {collapsed_index:02x}')
 		# if len(coords) == 1:
 		# 	coords_to_collapse = coords[0]
@@ -99,8 +112,67 @@ class wave_function_collapse:
 		# 	index = random.randint(0, len(coords) - 1)
 		# 	coords_to_collapse = coords[index]
 	
-	def add_manual_rule(self, name: str, func: FunctionType):
-		pass
+	def add_rule(self, func: FunctionType, idx: int = None):
+		"""
+		insert a rule into the rule list. use idx to specify a priority index. assumes lowest priority by default
+		"""
+		if type(func) == FunctionType: # if handler is a function
+			if type(idx) == int:
+				self.rules.insert(idx, func)
+			else:
+				self.rules.append(func) # add it to the handler functions
+		else: # if not, raise an error before it causes a problem in runtime
+			raise TypeError("input to add_press_handler must be of type \"function\"")
+
+	def run_rules(self):
+		self.possibilities = np.ones_like(self.possibilities, dtype=np.intc) # start with every tile being possible
+		for rule in self.rules: # evaluate each rule
+			new_possibilities = np.copy(self.possibilities)
+			new_possibilities &= rule(self.collapsed_tiles) # eliminate the tiles it says to, leave previously eliminated tiles alone
+			entropies = np.sum(new_possibilities, -1) # sum across tile vectors to get entropy calcs
+			lowest_entropy = np.min(entropies) # find lowest entropy
+
+			if lowest_entropy == 0: # if we ran out of options somewhere
+				break # don't consider this rule and stop
+
+			elif lowest_entropy == 1: # if we've only got one option somewhere
+				self.possibilities = new_possibilities # save that
+				break # but don't do more
+
+			else: # if we still have multiple options everywhere
+				self.possibilities = new_possibilities # save and keep going
+
+		entropies = np.sum(self.possibilities, -1) # sum across tile vectors to get entropy calcs
+		entropies[self.collapsed_tiles != self.undefined_tile] = self.undefined_tile # make sure filled tiles don't get counted
+		lowest_entropy = np.min(entropies) # find lowest entropy
+		lowest_coords = np.array(np.where(entropies == lowest_entropy)).T # get entropy coords as pair of column vectors
+		# If there are no tiles with entropy of 1, then pick just one randomly
+		print(f'Lowest entropy is {lowest_entropy}')
+		if lowest_entropy > 1:
+			return [lowest_coords[random.randint(0, len(lowest_coords)-1)]]
+		else:
+			return lowest_coords
+
+	def step_with_rules(self):
+		lowest_entropy_coords = self.run_rules()
+		if len(lowest_entropy_coords) == 0:
+			print('Done')
+			return self.collapsed_tiles
+		
+		self.collapse_state(lowest_entropy_coords)
+		
+		return self.collapsed_tiles
+
+	def fill(self):
+		assert len(self.rules) > 0, "cannot generate map, no rules specified"
+
+		while self.undefined_tile in self.collapsed_tiles:
+			self.step_with_rules()
+
+		return self.collapsed_tiles
+
+
+		
 
 
 if __name__ == '__main__':	
@@ -108,14 +180,25 @@ if __name__ == '__main__':
 	map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '0.npy'), allow_pickle=True)
 	
 	wfc = wave_function_collapse(map_zero.shape, ONEHOT_LENGTH)
-	
+
 	# Load the PyTorch model
 	model_file = os.path.join(DIRNAME, 'rules_gen_fc_no_dupes.pt')
 	with open(model_file, 'rb') as f:
 		model: whole_map_fc = torch.load(f, map_location=torch.device('cpu'))
 	
 	model.to('cpu') # just run on cpu to keep things simpler
-	
+
+	def nn_rules(tile_ids):
+		batch = torch.from_numpy(np.array([tile_ids], dtype=int))
+		nn_prediction = model(batch)[0].detach().numpy()
+		threshold = np.mean(nn_prediction, -1)
+		threshold = np.moveaxis(np.tile(threshold, (nn_prediction.shape[2], 1, 1)), 0, -1)
+		tile_multihot = np.zeros_like(nn_prediction, dtype=np.intc)
+		np.greater(nn_prediction,threshold,tile_multihot)
+		return tile_multihot
+
+	wfc.add_rule(nn_rules)
+
 	PATH_TILE = 1 # index of the walkable path tile
 	
 	# Get the initial board state
@@ -125,7 +208,8 @@ if __name__ == '__main__':
 	step = 0
 	while 89 in collapsed_tiles:
 		print(f'\nSTEP {step}')
-		batch = torch.from_numpy(np.array([collapsed_tiles], dtype=int))
+
+		"""batch = torch.from_numpy(np.array([collapsed_tiles], dtype=int))
 		
 		#print(batch)
 		#print(batch.shape)
@@ -142,14 +226,9 @@ if __name__ == '__main__':
 		
 		
 		# Perform WFC computations
-		collapsed_tiles = wfc.step(tile_multihot)
-		"""for a, column in enumerate(collapsed_tiles):
-			for b, val in enumerate(column):
-				if val != 89:
-					print(nn_prediction[a,b])"""
+		collapsed_tiles = wfc.step(tile_multihot)"""
 		
-		#1/0
-		# print('Collapsed tiles:', collapsed_tiles[3, 0])
+		collapsed_tiles = wfc.step_with_rules()
 		
 		# Generate an image so we can visualize what the current map looks like
 		generate_map_image.from_indexes(collapsed_tiles, os.path.join(DIR_DATA, f'step_{step}.png'))
