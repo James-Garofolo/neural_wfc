@@ -9,6 +9,7 @@ from rules_network import whole_map_fc, get_data
 from split_map import DIR_DATA, DIRNAME, DIR_MAPVECTORS_NP_OUTPUT
 import generate_map_image
 import random
+from sklearn.model_selection import train_test_split # tts for collapse limit
 
 class wave_function_collapse:
 	
@@ -18,10 +19,16 @@ class wave_function_collapse:
 		map_shape: sdfdsf
 		num_possible_tiles: sdfsdf
 	"""
-	def __init__(self, map_shape, num_possible_tiles, starting_tiles = None) -> None:
+	def __init__(self, map_shape, num_possible_tiles, collapse_limit = None, starting_tiles = None) -> None:
 		self.rules = []
 		self.undefined_tile = num_possible_tiles # update later
 		self.possibilities = np.ones((map_shape[0], map_shape[1], num_possible_tiles))
+		
+		if collapse_limit == None:
+			self.collapse_limit = map_shape[0]*map_shape[1]
+		else:
+			self.collapse_limit = collapse_limit
+
 		if starting_tiles == None:
 			self.collapsed_tiles = np.ones(map_shape, dtype=int) * (self.undefined_tile)
 		else:
@@ -104,7 +111,7 @@ class wave_function_collapse:
 			# Collapse to a random index within the list of indices that == 1
 			# print(self.possibilities[coords_to_collapse])
 			
-			collapsed_index = where[random.randint(0, len(where) - 1)]
+			collapsed_index = where[np.random.randint(0, len(where), )]
 			# Set collapsed_tiles to the new tile index at these coords
 			self.collapsed_tiles[x, y] = collapsed_index
 			# print(f'Collapsed tile {coords} into {collapsed_index:02x}')
@@ -137,6 +144,7 @@ class wave_function_collapse:
 
 			if lowest_entropy == 0: # if we ran out of options somewhere
 				break # don't consider this rule and stop
+				
 
 			elif lowest_entropy == 1: # if we've only got one option somewhere
 				self.possibilities = new_possibilities # save that
@@ -151,11 +159,17 @@ class wave_function_collapse:
 		lowest_coords = np.array(np.where(entropies == lowest_entropy)).T # get entropy coords as pair of column vectors
 		# If there are no tiles with entropy of 1, then pick just one randomly
 		print(f'Lowest entropy is {lowest_entropy}')
-		"""if lowest_entropy > 1:
+		if lowest_entropy > 1:
 			return [lowest_coords[random.randint(0, len(lowest_coords)-1)]]
 		else:
-			return lowest_coords"""
-		return [lowest_coords[random.randint(0, len(lowest_coords)-1)]]
+			if len(lowest_coords) > self.collapse_limit:
+				ids = np.arange(len(lowest_coords))
+				# fun little trick to shuffle and split the indexes using tts
+				ids, _ = train_test_split(ids, train_size=self.collapse_limit)
+				return lowest_coords[ids]
+			else:
+				return lowest_coords
+		#return [lowest_coords[random.randint(0, len(lowest_coords)-1)]]
 
 	def step_with_rules(self):
 		lowest_entropy_coords = self.run_rules()
@@ -183,7 +197,7 @@ if __name__ == '__main__':
 	# Get the shape of the maps
 	map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '0.npy'), allow_pickle=True)
 	
-	wfc = wave_function_collapse(map_zero.shape, ONEHOT_LENGTH)
+	wfc = wave_function_collapse(map_zero.shape, ONEHOT_LENGTH, collapse_limit=3)
 
 	# Load the PyTorch model
 	model_file = os.path.join(DIRNAME, 'rules_gen_fc_no_dupes.pt')
@@ -235,5 +249,12 @@ if __name__ == '__main__':
 		collapsed_tiles = wfc.step_with_rules()
 		
 		# Generate an image so we can visualize what the current map looks like
-		generate_map_image.from_indexes(collapsed_tiles+1, os.path.join(DIR_DATA, f'step_{step}.png'))
+		generate_map_image.from_indexes((collapsed_tiles)%90, os.path.join(DIR_DATA, f'step_{step}.png'))
 		step += 1
+
+	while True:
+		try:
+			os.remove(os.path.join(DIR_DATA, f'step_{step}.png'))
+			step += 1
+		except FileNotFoundError:
+			break
