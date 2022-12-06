@@ -12,8 +12,8 @@ NUM_TILES_X = 16 * 16
 NUM_TILES_Y = 8 * 11
 
 # number of tiles per map (CAN change) - Default is 16 x 11
-MAP_SIZE_X = 16
-MAP_SIZE_Y = 11
+MAP_SIZE_X = 7
+MAP_SIZE_Y = 7
 
 # Stride between each map - Default is 16 x 11
 STRIDE_SIZE_X = 1
@@ -112,16 +112,17 @@ def main():
 	this_idx = 0
 	for map_y in range(NUM_MAPS_Y):
 		for map_x in range(NUM_MAPS_X):
+			if (map_y * STRIDE_SIZE_Y + MAP_SIZE_Y) > NUM_TILES_Y:
+				continue
+			if (map_x * STRIDE_SIZE_X + MAP_SIZE_X) > NUM_TILES_X:
+				continue
 			# split up the dataframe into the chunk associated with this map
 			this_rangeIdx = csv_df.columns[map_y * STRIDE_SIZE_Y : (map_y * STRIDE_SIZE_Y) + MAP_SIZE_Y ]
 			this_mapColumn = csv_df[this_rangeIdx]
 			this_range = this_mapColumn[map_x * STRIDE_SIZE_X : (map_x * STRIDE_SIZE_X) + MAP_SIZE_X]
 			this_range = pd.DataFrame(this_range.to_numpy()) # force reset the axes to 0
 			
-			if (map_y * STRIDE_SIZE_Y + MAP_SIZE_Y) > len(csv_df.columns):
-				continue
-			if (map_x * STRIDE_SIZE_X + MAP_SIZE_X) > len(this_mapColumn):
-				continue
+			
 			
 			# Create an image for this map
 			this_map = Image.new(mode = 'RGB', 
@@ -141,7 +142,7 @@ def main():
 			# Convert into one-hot vectors
 			range_as_indexes = this_range.apply(lambda x: x.astype(str).map(lambda x: int(x, 16))) # .map(hex_to_onehot)
 			np.save(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, f'{this_idx}.npy'), range_as_indexes.to_numpy(), allow_pickle=False)
-			range_as_indexes.to_csv(os.path.join(DIR_MAPVECTORS_CSV_OUTPUT, f'{this_idx}.csv'), header=None, index=None)
+			# range_as_indexes.to_csv(os.path.join(DIR_MAPVECTORS_CSV_OUTPUT, f'{this_idx}.csv'), header=None, index=None)
 			print(f'  {this_idx+1} of {NUM_MAPS_X * NUM_MAPS_Y}   ', end='\r')
 			
 			this_idx += 1
