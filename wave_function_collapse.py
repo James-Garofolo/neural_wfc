@@ -198,9 +198,9 @@ if __name__ == '__main__':
 	map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '0.npy'), allow_pickle=True)
 	
 	wfc = wave_function_collapse(map_zero.shape, ONEHOT_LENGTH, collapse_limit=3)
-
+	print(ONEHOT_LENGTH)
 	# Load the PyTorch model
-	model_file = os.path.join(DIRNAME, 'rules_gen_fc_no_dupes.pt')
+	model_file = os.path.join(DIRNAME, 'rules_gen_fc_exp.pt')
 	with open(model_file, 'rb') as f:
 		model: whole_map_fc = torch.load(f, map_location=torch.device('cpu'))
 	
@@ -224,7 +224,7 @@ if __name__ == '__main__':
 	
 	#collapsed_tiles[0, 0] = 90 # manually insert a path tile in the left edge
 	step = 0
-	while 89 in collapsed_tiles:
+	while ONEHOT_LENGTH in collapsed_tiles:
 		print(f'\nSTEP {step}')
 
 		"""batch = torch.from_numpy(np.array([collapsed_tiles], dtype=int))
@@ -249,8 +249,9 @@ if __name__ == '__main__':
 		collapsed_tiles = wfc.step_with_rules()
 		
 		# Generate an image so we can visualize what the current map looks like
-		generate_map_image.from_indexes((collapsed_tiles)%90, os.path.join(DIR_DATA, f'step_{step}.png'))
+		generate_map_image.from_indexes(collapsed_tiles, os.path.join(DIR_DATA, f'step_{step}.png'))
 		step += 1
+	
 
 	while True:
 		try:
