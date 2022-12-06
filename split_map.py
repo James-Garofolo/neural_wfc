@@ -134,17 +134,17 @@ def main():
 			this_map.save(os.path.join(DIR_MAP_OUTPUT, f'{this_idx}.png'), 'PNG')
 			
 			# Convert into one-hot vectors
-			onehot = this_range.apply(lambda x: x.astype(str).map(hex_to_onehot))
-			np.save(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, f'{this_idx}.npy'), onehot.to_numpy(), allow_pickle=True)
-			onehot.to_csv(os.path.join(DIR_MAPVECTORS_CSV_OUTPUT, f'{this_idx}.csv'), header=None, index=None)
+			range_as_indexes = this_range.apply(lambda x: x.astype(str).map(lambda x: int(x, 16))) # .map(hex_to_onehot)
+			np.save(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, f'{this_idx}.npy'), range_as_indexes.to_numpy(), allow_pickle=False)
+			range_as_indexes.to_csv(os.path.join(DIR_MAPVECTORS_CSV_OUTPUT, f'{this_idx}.csv'), header=None, index=None)
 			print(f'  {this_idx+1} of {NUM_MAPS_X * NUM_MAPS_Y}   ', end='\r')
 			
 			this_idx += 1
 	
 	notes = ''
 	for tile_name in all_tile_names:
-		onehot = hex_to_onehot(tile_name).astype(int)
-		notes = notes + f'{tile_name}: {np.array2string(onehot, max_line_width=1000, precision=None)} \n'
+		range_as_indexes = hex_to_onehot(tile_name).astype(int)
+		notes = notes + f'{tile_name}: {np.array2string(range_as_indexes, max_line_width=1000, precision=None)} \n'
 	
 	with open(os.path.join(DIR_MAPVECTORS_OUTPUT, 'notes.txt'), 'w') as f:
 		f.write(notes)
