@@ -4,17 +4,24 @@ import pandas as pd
 import numpy as np
 from hex_onehot import ONEHOT_LENGTH, hex_to_onehot
 
-# number of tiles in the overworld
-NUM_MAPS_X = 16
-NUM_MAPS_Y = 8
-
 # x/y size of each square tile, in px
 TILE_SIZE = 16
-# the map image thingy cuts off the bottom 8 pixels of each tile
-MAP_OVERFLOW_Y = 8
-# number of tiles per map
-MAP_SIZE_X = 16
-MAP_SIZE_Y = 11
+
+# Total number of tiles in the overworld
+NUM_TILES_X = 16 * 16
+NUM_TILES_Y = 8 * 11
+
+# number of tiles per map (CAN change) - Default is 16 x 11
+MAP_SIZE_X = 10
+MAP_SIZE_Y = 10
+
+# Stride between each map - Default is 16 x 11
+STRIDE_SIZE_X = 5
+STRIDE_SIZE_Y = 5
+
+# number of maps in the overworld
+NUM_MAPS_X = math.floor((NUM_TILES_X * (MAP_SIZE_X / STRIDE_SIZE_X)) / MAP_SIZE_X)
+NUM_MAPS_Y = math.floor((NUM_TILES_Y * (MAP_SIZE_Y / STRIDE_SIZE_Y)) / MAP_SIZE_Y)
 
 DIRNAME = os.path.dirname(__file__)
 DIR_DATASRC = os.path.join(DIRNAME, 'data_source')
@@ -46,7 +53,7 @@ def main():
 	print('Opening source image')
 	
 	with Image.open(img_path) as img:
-		if (csv_df.shape[0] * TILE_SIZE != img.size[0] or (csv_df.shape[1] * TILE_SIZE - MAP_OVERFLOW_Y * NUM_MAPS_Y) != img.size[1]):
+		if (csv_df.shape[0] * TILE_SIZE != img.size[0] or (csv_df.shape[1] * TILE_SIZE) != img.size[1]):
 			raise RuntimeError('CSV data does not line up with the map image data!')
 		
 		print('Extracting tile sprites')
@@ -58,7 +65,7 @@ def main():
 					this_map_row = math.floor(y / MAP_SIZE_Y)
 					# Crop the tile sprite from the main image & save it to the dict object
 					coord_x = x * TILE_SIZE
-					coord_y = y * TILE_SIZE - (this_map_row * MAP_OVERFLOW_Y)
+					coord_y = y * TILE_SIZE
 					box = (coord_x, coord_y, coord_x + TILE_SIZE, coord_y + TILE_SIZE)
 					tile_sprite_dict[tile_name] = img.crop(box)
 		
@@ -102,13 +109,13 @@ def main():
 	
 	
 	print('Creating individual map files')
+	this_idx = 0
 	for map_y in range(NUM_MAPS_Y):
 		for map_x in range(NUM_MAPS_X):
-			this_idx = map_x + map_y * NUM_MAPS_X
 			# split up the dataframe into the chunk associated with this map
-			this_rangeIdx = csv_df.columns[map_y * MAP_SIZE_Y : (map_y + 1) * MAP_SIZE_Y]
+			this_rangeIdx = csv_df.columns[map_y * STRIDE_SIZE_Y : (map_y * STRIDE_SIZE_Y) + MAP_SIZE_Y ]
 			this_mapColumn = csv_df[this_rangeIdx]
-			this_range = this_mapColumn[map_x * MAP_SIZE_X : (map_x + 1) * MAP_SIZE_X]
+			this_range = this_mapColumn[map_x * STRIDE_SIZE_X : (map_x * STRIDE_SIZE_X) + MAP_SIZE_X]
 			this_range = pd.DataFrame(this_range.to_numpy()) # force reset the axes to 0
 			
 			# Create an image for this map
@@ -127,10 +134,12 @@ def main():
 			this_map.save(os.path.join(DIR_MAP_OUTPUT, f'{this_idx}.png'), 'PNG')
 			
 			# Convert into one-hot vectors
-			onehot = this_range.apply(lambda x: x.astype(str).map(hex_to_onehot))
-			np.save(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, f'{this_idx}.npy'), onehot.to_numpy(), allow_pickle=True)
-			onehot.to_csv(os.path.join(DIR_MAPVECTORS_CSV_OUTPUT, f'{this_idx}.csv'), header=None, index=None)
-			print(f'  {this_idx+1} of {NUM_MAPS_X * NUM_MAPS_Y}   ', end='\r')
+			# onehot = this_range.apply(lambda x: x.astype(str).map(hex_to_onehot))
+			# np.save(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, f'{this_idx}.npy'), onehot.to_numpy(), allow_pickle=True)
+			# onehot.to_csv(os.path.join(DIR_MAPVECTORS_CSV_OUTPUT, f'{this_idx}.csv'), header=None, index=None)
+			# print(f'  {this_idx+1} of {NUM_MAPS_X * NUM_MAPS_Y}   ', end='\r')
+			
+			this_idx += 1
 	
 	notes = ''
 	for tile_name in all_tile_names:
