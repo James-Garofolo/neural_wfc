@@ -190,15 +190,38 @@ class wave_function_collapse:
 		return self.collapsed_tiles
 
 
-		
+def make_small_nn_rules(model, model_size, num_tiles, ideal_stride):
+	"""
+	ideal stride is how many steps you'd like it to take each go if the shape
+	worked, the actual stride is going to be rounding-modulated to be close to that
+	while fitting the shape of tile_ids
+	"""
+	def small_nn_rules(tile_ids):
+		out_probs = np.zeros([*tile_ids.shape, num_tiles])
+		num_steps = np.ceil((tile_ids.shape-model_size)/ideal_stride) 
+		for x in np.round(np.linspace(0, (tile_ids.shape[0]-model_size), num_steps[0])):
+			for y in np.round(np.linspace(0, (tile_ids.shape[1]-model_size), num_steps[1])):
+				# take a square from the map and infer on it
+				batch = torch.from_numpy(np.array([tile_ids[x:x+model_size-1, y:y+model_size-1]], dtype=int))
+				nn_prediction = model(batch)[0].detach().numpy()
+				threshold = np.mean(nn_prediction, -1)
+				threshold = np.moveaxis(np.tile(threshold, (nn_prediction.shape[2], 1, 1)), 0, -1)
+				tile_multihot = np.zeros_like(nn_prediction, dtype=np.intc)
+				np.greater(nn_prediction,threshold,tile_multihot)
+				out_probs[x:x+model_size-1, y:y+model_size-1] |= tile_multihot
+
+		return tile_multihot
+
+	return small_nn_rules		
 
 
 if __name__ == '__main__':	
 	# Get the shape of the maps
-	map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '0.npy'), allow_pickle=True)
+	#map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '0.npy'), allow_pickle=True)
 	
-	wfc = wave_function_collapse(map_zero.shape, ONEHOT_LENGTH, collapse_limit=3)
-	print(ONEHOT_LENGTH)
+	tile_vector_length = 90
+	wfc = wave_function_collapse((16,11), tile_vector_length)#, collapse_limit=1)
+	print(tile_vector_length)
 	# Load the PyTorch model
 	model_file = os.path.join(DIRNAME, 'rules_gen_fc_exp.pt')
 	with open(model_file, 'rb') as f:
@@ -214,6 +237,8 @@ if __name__ == '__main__':
 		tile_multihot = np.zeros_like(nn_prediction, dtype=np.intc)
 		np.greater(nn_prediction,threshold,tile_multihot)
 		return tile_multihot
+			
+
 
 	wfc.add_rule(nn_rules)
 
@@ -249,13 +274,13 @@ if __name__ == '__main__':
 		collapsed_tiles = wfc.step_with_rules()
 		
 		# Generate an image so we can visualize what the current map looks like
-		generate_map_image.from_indexes(collapsed_tiles, os.path.join(DIR_DATA, f'step_{step}.png'))
+		generate_map_image.from_indexes(collapsed_tiles, os.path.join(DIR_DATA, f'steps/step_{step}.png'))
 		step += 1
 	
-
+	
 	while True:
 		try:
-			os.remove(os.path.join(DIR_DATA, f'step_{step}.png'))
+			os.remove(os.path.join(DIR_DATA, f'steps/step_{step}.png'))
 			step += 1
 		except FileNotFoundError:
 			break

@@ -12,12 +12,12 @@ NUM_TILES_X = 16 * 16
 NUM_TILES_Y = 8 * 11
 
 # number of tiles per map (CAN change) - Default is 16 x 11
-MAP_SIZE_X = 10
-MAP_SIZE_Y = 10
+MAP_SIZE_X = 16
+MAP_SIZE_Y = 11
 
 # Stride between each map - Default is 16 x 11
-STRIDE_SIZE_X = 5
-STRIDE_SIZE_Y = 5
+STRIDE_SIZE_X = 16
+STRIDE_SIZE_Y = 11
 
 # number of maps in the overworld
 NUM_MAPS_X = math.floor((NUM_TILES_X * (MAP_SIZE_X / STRIDE_SIZE_X)) / MAP_SIZE_X)

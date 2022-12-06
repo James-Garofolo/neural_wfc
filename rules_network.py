@@ -55,7 +55,7 @@ class whole_map_fc(nn.Module):
 
         return outs
 
-def get_data(path: str):
+def get_data_onehots(path: str):
     """
     getting in one 2d array of 1d one-hot vectors, need to open for each file and turn them into
     """
@@ -76,6 +76,17 @@ def get_data(path: str):
     maps = np.stack(maps)
     return maps, length
 
+def get_data_ids(path: str, num_windows: int = 128):
+    """
+    getting in one 2d array of 1d one-hot vectors, need to open for each file and turn them into
+    """
+    maps = []
+    for a in range(num_windows):
+        map = np.load(f'{path}/{a}.npy', allow_pickle=True)
+        maps.append(map)
+    maps = np.stack(maps)
+    length = np.max(maps)
+    return maps, length
 
 def idx_to_one_hot(ids: np.array, max_id):
     outs = np.zeros((ids.shape[0], ids.shape[1], ids.shape[2], max_id+1), dtype=np.intc)
@@ -218,9 +229,9 @@ def test(data, labels, model, device, loss_fn):
 
 
 if __name__ == "__main__":
-    full_windows, max_id = get_data(os.getcwd() + "/data/map_vectors/numpy/")
+    full_windows, max_id = get_data_ids(os.getcwd() + "/data/map_vectors/numpy/")
     print("data in: ", full_windows.shape)
-    data_windows, label_windows = add_unknowns(full_windows, 400, max_id)
+    data_windows, label_windows = add_unknowns(full_windows, 100, max_id)
     print("with unknowns added: ", data_windows.shape, label_windows.shape)
     print("max id:", max_id)
 
