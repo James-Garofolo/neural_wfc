@@ -16,8 +16,8 @@ MAP_SIZE_X = 16
 MAP_SIZE_Y = 11
 
 # Stride between each map - Default is 16 x 11
-STRIDE_SIZE_X = 16
-STRIDE_SIZE_Y = 11
+STRIDE_SIZE_X = 1
+STRIDE_SIZE_Y = 1
 
 # number of maps in the overworld
 NUM_MAPS_X = math.floor((NUM_TILES_X * (MAP_SIZE_X / STRIDE_SIZE_X)) / MAP_SIZE_X)
@@ -117,6 +117,11 @@ def main():
 			this_mapColumn = csv_df[this_rangeIdx]
 			this_range = this_mapColumn[map_x * STRIDE_SIZE_X : (map_x * STRIDE_SIZE_X) + MAP_SIZE_X]
 			this_range = pd.DataFrame(this_range.to_numpy()) # force reset the axes to 0
+			
+			if (map_y * STRIDE_SIZE_Y + MAP_SIZE_Y) > len(csv_df.columns):
+				continue
+			if (map_x * STRIDE_SIZE_X + MAP_SIZE_X) > len(this_mapColumn):
+				continue
 			
 			# Create an image for this map
 			this_map = Image.new(mode = 'RGB', 
