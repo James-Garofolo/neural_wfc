@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from sklearn.model_selection import train_test_split
 import os
+import gc
 
 """
 change fc network guy to use embeddings with index inputs rather than one-hot vector inputs
@@ -76,12 +77,12 @@ def get_data_onehots(path: str):
     maps = np.stack(maps)
     return maps, length
 
-def get_data_ids(path: str, num_windows: int = 128):
+def get_data_ids(path: str, num_windows: int = 128, range_start: int = 0):
     """
     getting in one 2d array of 1d one-hot vectors, need to open for each file and turn them into
     """
     maps = []
-    for a in range(9,num_windows, 15):
+    for a in range(range_start,num_windows, 15):
         map = np.load(f'{path}/{a}.npy', allow_pickle=True)
         maps.append(map)
     maps = np.stack(maps)
@@ -231,41 +232,46 @@ def test(data, labels, model, device, loss_fn):
 
 
 if __name__ == "__main__":
-    full_windows, max_id = get_data_ids(os.getcwd() + "/data/map_vectors/numpy", 20500)
-    print("data in: ", full_windows.shape)
-    data_windows, label_windows = add_unknowns(full_windows, 100, max_id)
-    print("with unknowns added: ", data_windows.shape, label_windows.shape)
-    print("max id:", max_id)
-
-    train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_windows, test_size=0.1)
-    
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using {device} device")
-
-
-    with open("rules_gen_7.pt", 'rb') as f:
-        model: whole_map_fc = torch.load(f, map_location=torch.device('cpu'))
-    #model = whole_map_fc(label_windows.shape[1], label_windows.shape[2], max_id+1, 0.5).to(device)
-    loss = nn.BCELoss()
-    optim = torch.optim.Adam(model.parameters(), lr=0.001)
-
-    print('starting to train')
-
-    best_loss = None
-    best_acc = 0
-    epochs = 2
-    for t in range(epochs):
-        print(f"Epoch {t+1}\n-------------------------------")
-        train_acc, train_loss = train(train_data, train_labels, model, device, loss, optim, False)
-        test_acc, test_loss = test(val_data, val_labels, model, device, loss)
-        if (best_loss == None) or (best_loss > test_loss) or (test_acc > best_acc):
-            best_loss = test_loss
-            best_acc = test_acc
-            with open('rules_gen_7.pt', 'wb') as f:
-                torch.save(model, f)
+    for range_start in range(2, 15):
+        # Force garbage collection at start of loop
+        gc.collect()
         
-        else:
-            optim.defaults['lr'] /= 2
+        print(f'range_start={range_start}')
+        full_windows, max_id = get_data_ids(os.getcwd() + "/data/map_vectors/numpy", 20500, range_start)
+        print("data in: ", full_windows.shape)
+        data_windows, label_windows = add_unknowns(full_windows, 100, max_id)
+        print("with unknowns added: ", data_windows.shape, label_windows.shape)
+        print("max id:", max_id)
+
+        train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_windows, test_size=0.1)
         
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"Using {device} device")
+
+        with open("rules_gen_7.pt", 'rb') as f:
+            model: whole_map_fc = torch.load(f)
+        # model = whole_map_fc(label_windows.shape[1], label_windows.shape[2], max_id+1, 0.5).to(device)
+        loss = nn.BCELoss()
+        optim = torch.optim.Adam(model.parameters(), lr=0.001)
+
+        print('starting to train')
+
+        best_loss = None
+        best_acc = 0
+        epochs = 2
+        for t in range(epochs):
+            print(f"Epoch {t+1}\n-------------------------------")
+            train_acc, train_loss = train(train_data, train_labels, model, device, loss, optim, False)
+            test_acc, test_loss = test(val_data, val_labels, model, device, loss)
+            if (best_loss == None) or (best_loss > test_loss) or (test_acc > best_acc):
+                best_loss = test_loss
+                best_acc = test_acc
+                with open('rules_gen_7.pt', 'wb') as f:
+                    torch.save(model, f)
+            
+            else:
+                optim.defaults['lr'] /= 2
+        # Delete variables at end of loop
+        del full_windows, max_id, data_windows, label_windows, train_data, val_data, val_labels, model, loss, optim
     print("Done!")
