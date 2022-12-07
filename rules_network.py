@@ -81,7 +81,7 @@ def get_data_ids(path: str, num_windows: int = 128):
     getting in one 2d array of 1d one-hot vectors, need to open for each file and turn them into
     """
     maps = []
-    for a in range(num_windows):
+    for a in range(9,num_windows, 15):
         map = np.load(f'{path}/{a}.npy', allow_pickle=True)
         maps.append(map)
     maps = np.stack(maps)
@@ -121,6 +121,8 @@ def add_unknowns(in_maps: np.array, num_out_maps: int, max_id: int):
     label_maps = []
     overlap_count = 0
     for a, map in enumerate(in_maps):
+        if a%100 == 0:
+            print(f"   map: {a}   ")
         #out_maps.append(add_unknowns_to_one(map, num_out_maps, max_id))
         out_map = add_unknowns_to_one(map, num_out_maps, max_id)
         label_maps.append(idx_to_one_hot(np.tile(map,[num_out_maps+1,*[1]*len(map.shape)]), max_id))
@@ -229,7 +231,7 @@ def test(data, labels, model, device, loss_fn):
 
 
 if __name__ == "__main__":
-    full_windows, max_id = get_data_ids(os.getcwd() + "/data/map_vectors/numpy/")
+    full_windows, max_id = get_data_ids(os.getcwd() + "/data/map_vectors/numpy", 20500)
     print("data in: ", full_windows.shape)
     data_windows, label_windows = add_unknowns(full_windows, 100, max_id)
     print("with unknowns added: ", data_windows.shape, label_windows.shape)
@@ -241,7 +243,10 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
 
-    model = whole_map_fc(label_windows.shape[1], label_windows.shape[2], max_id+1, 0.5).to(device)
+
+    with open("rules_gen_7.pt", 'rb') as f:
+        model: whole_map_fc = torch.load(f, map_location=torch.device('cpu'))
+    #model = whole_map_fc(label_windows.shape[1], label_windows.shape[2], max_id+1, 0.5).to(device)
     loss = nn.BCELoss()
     optim = torch.optim.Adam(model.parameters(), lr=0.001)
 
@@ -249,7 +254,7 @@ if __name__ == "__main__":
 
     best_loss = None
     best_acc = 0
-    epochs = 20
+    epochs = 2
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
         train_acc, train_loss = train(train_data, train_labels, model, device, loss, optim, False)
@@ -257,7 +262,7 @@ if __name__ == "__main__":
         if (best_loss == None) or (best_loss > test_loss) or (test_acc > best_acc):
             best_loss = test_loss
             best_acc = test_acc
-            with open('rules_gen_fc_no_dupes.pt', 'wb') as f:
+            with open('rules_gen_7.pt', 'wb') as f:
                 torch.save(model, f)
         
         else:
