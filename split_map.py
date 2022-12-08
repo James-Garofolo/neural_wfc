@@ -14,14 +14,19 @@ NUM_TILES_Y = 8 * 11
 # number of tiles per map (CAN change) - Default is 16 x 11
 MAP_SIZE_X = 7
 MAP_SIZE_Y = 7
+UNDEFINED_BUFFER = 3
 
 # Stride between each map - Default is 16 x 11
 STRIDE_SIZE_X = 1
 STRIDE_SIZE_Y = 1
 
 # number of maps in the overworld
-NUM_MAPS_X = math.floor((NUM_TILES_X * (MAP_SIZE_X / STRIDE_SIZE_X)) / MAP_SIZE_X)
-NUM_MAPS_Y = math.floor((NUM_TILES_Y * (MAP_SIZE_Y / STRIDE_SIZE_Y)) / MAP_SIZE_Y)
+# NUM_MAPS_X = math.floor((NUM_TILES_X * (MAP_SIZE_X / STRIDE_SIZE_X)) / MAP_SIZE_X)
+# NUM_MAPS_Y = math.floor((NUM_TILES_Y * (MAP_SIZE_Y / STRIDE_SIZE_Y)) / MAP_SIZE_Y)
+
+# https://www.theclickreader.com/stride-and-calculation-of-output-size/
+NUM_MAPS_X = math.floor(((NUM_TILES_X + 2*UNDEFINED_BUFFER) - MAP_SIZE_X) / STRIDE_SIZE_X + 1)
+NUM_MAPS_Y = math.floor(((NUM_TILES_Y + 2*UNDEFINED_BUFFER) - MAP_SIZE_Y) / STRIDE_SIZE_Y + 1)
 
 DIRNAME = os.path.dirname(__file__)
 DIR_DATASRC = os.path.join(DIRNAME, 'data_source')
@@ -108,22 +113,19 @@ def main():
 	# 		this_map.save(os.path.join(DIR_MAP_OUTPUT, f'{this_idx}.png'), 'PNG')
 	
 	
+	padded_df = pd.DataFrame(np.pad(csv_df.to_numpy(), pad_width=UNDEFINED_BUFFER, mode='constant', constant_values=f'{ONEHOT_LENGTH:02x}'))
+	
 	print('Creating individual map files')
 	this_idx = 0
 	for map_y in range(NUM_MAPS_Y):
 		for map_x in range(NUM_MAPS_X):
-			if (map_y * STRIDE_SIZE_Y + MAP_SIZE_Y) > NUM_TILES_Y:
-				continue
-			if (map_x * STRIDE_SIZE_X + MAP_SIZE_X) > NUM_TILES_X:
-				continue
 			# split up the dataframe into the chunk associated with this map
-			this_rangeIdx = csv_df.columns[map_y * STRIDE_SIZE_Y : (map_y * STRIDE_SIZE_Y) + MAP_SIZE_Y ]
-			this_mapColumn = csv_df[this_rangeIdx]
+			this_rangeIdx = padded_df.columns[map_y * STRIDE_SIZE_Y : (map_y * STRIDE_SIZE_Y) + MAP_SIZE_Y ]
+			this_mapColumn = padded_df[this_rangeIdx]
 			this_range = this_mapColumn[map_x * STRIDE_SIZE_X : (map_x * STRIDE_SIZE_X) + MAP_SIZE_X]
 			this_range = pd.DataFrame(this_range.to_numpy()) # force reset the axes to 0
-			
-			
-			
+			# print(this_mapColumn)
+			# exit()
 			# Create an image for this map
 			this_map = Image.new(mode = 'RGB', 
 				size = (MAP_SIZE_X * TILE_SIZE, MAP_SIZE_Y * TILE_SIZE),
@@ -135,7 +137,8 @@ def main():
 					# Place each sprite in order
 					coord_x = x * TILE_SIZE
 					coord_y = y * TILE_SIZE
-					this_map.paste(tile_sprite_dict[tile_name], (coord_x, coord_y))
+					if tile_name in tile_sprite_dict:
+						this_map.paste(tile_sprite_dict[tile_name], (coord_x, coord_y))
 			# Save the image
 			this_map.save(os.path.join(DIR_MAP_OUTPUT, f'{this_idx}.png'), 'PNG')
 			
