@@ -168,10 +168,11 @@ class wave_function_collapse:
 		else:
 			if len(lowest_coords) > self.collapse_limit:
 
-				self.collapse_limit = int(self.collapse_limit*self.limit_decay)
+				self.collapse_limit = max(self.collapse_limit*self.limit_decay,1)
+				print("collapse limit:", self.collapse_limit)
 				ids = np.arange(len(lowest_coords))
 				# fun little trick to shuffle and split the indexes using tts
-				ids, _ = train_test_split(ids, train_size=self.collapse_limit)
+				ids, _ = train_test_split(ids, train_size=int(self.collapse_limit))
 				return lowest_coords[ids]
 			else:
 				return lowest_coords
@@ -267,13 +268,13 @@ if __name__ == '__main__':
 	#start_tiles[:,0] = 45
 	#start_tiles[:,-1] = 45
 
-	wfc = wave_function_collapse((256,88), tile_vector_length, collapse_limit=128, guess_multiple=True, limit_decay_rate=0.99)
+	wfc = wave_function_collapse((50,50), tile_vector_length, collapse_limit=10, guess_multiple=True, limit_decay_rate=0.9)
 	print(tile_vector_length)
 	# Load the PyTorch model
 	device = "cuda" if torch.cuda.is_available() else "cpu"
 	print(f"Using {device} device")
 
-	model_file = os.path.join(DIRNAME, 'rules_gen_7_1_out.pt')
+	model_file = os.path.join(DIRNAME, 'rules_gen_7_1_out_multihot.pt')
 	with open(model_file, 'rb') as f:
 		model: conv_window_maker = torch.load(f, map_location=torch.device(device))
 	
