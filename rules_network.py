@@ -56,6 +56,54 @@ class whole_map_fc(nn.Module):
 
         return outs
 
+
+class conv_window_maker(nn.Module):
+    def __init__(self, columns, rows, tiles, hidden_ratio=0.5) -> None:
+        super().__init__()
+
+        self.columns = columns
+        self.rows = rows
+        self.tiles = tiles
+        #print('saved dims')
+        embedding_dim = int(self.tiles/10)
+        print("embedding dims:", embedding_dim)
+        self.embed = nn.Embedding(self.tiles+1, embedding_dim)
+        self.flatten = nn.Flatten() # flatten into array of tile vectors, preserve batch index
+        #print('made special layers')
+        
+        self.top = nn.Sequential(
+            nn.Linear(columns*rows*embedding_dim, int(columns*rows*embedding_dim*hidden_ratio)),
+            nn.ReLU(),
+            nn.Linear(int(columns*rows*embedding_dim*hidden_ratio), tiles),
+        )
+
+        self.softmax = nn.Softmax(3)
+        self.logify = nn.Sigmoid()
+
+        
+    def forward(self, maps):
+        """
+        maps should come in as nested lists, np arrays or torch tensors with shape (batch, columns, rows, tiles+1)
+        """
+        if not torch.is_tensor(maps):
+            maps  = torch.tensor(maps)
+
+        #print("in shape:", maps.shape, torch.max(maps))
+        maps = self.embed(maps)
+        #print("embedded:", maps.shape)
+        maps = self.flatten(maps)
+        #print("flattened:", maps.shape)
+        out_probs = self.top(maps)
+        #print("inferred", out_probs.shape)
+        #outs = self.softmax(out_probs.view(-1,self.columns,self.rows,self.tiles-1))
+        outs = self.logify(out_probs.view(-1,self.tiles))
+        #outs = out_probs.view(-1,self.columns,self.rows,self.tiles)
+        #print("softmaxed", outs.shape, torch.max(outs))
+
+
+        return outs
+
+
 def get_data_onehots(path: str):
     """
     getting in one 2d array of 1d one-hot vectors, need to open for each file and turn them into
@@ -140,6 +188,43 @@ def add_unknowns(in_maps: np.array, num_out_maps: int, max_id: int):
     label_maps = np.concatenate(label_maps).astype(np.single)
     return out_maps, label_maps
 
+
+def single_out_add_unknowns(in_maps: np.array, num_out_maps: int, max_id: int):
+    out_maps = []
+    label_vectors = []
+    overlap_count = 0
+    middle = np.ceil([in_maps.shape[0]/2, in_maps.shape[1]/2])
+    for a, map in enumerate(in_maps):
+        if a%100 == 0:
+            print(f"   map: {a}   ")
+            
+        out_map = add_unknowns_to_one(map, num_out_maps, max_id)
+        out_maps.append(out_map)
+        label_vector = np.ones(num_out_maps+1)*map[middle]
+        label_vectors.append(label_vector)
+
+    print(f"found {overlap_count} overlaps")
+    out_maps = np.concatenate(out_maps)
+    label_vectors = np.concatenate(label_vectors)
+    unique_samples = np.unique(out_maps, axis=0)
+    unique_labels = np.zeros((unique_samples.shape[0], max_id))
+    match_ids = [[]*unique_samples.shape[0]]
+
+    for a, sample in enumerate(out_maps):
+        for b, unique_sample in enumerate(unique_samples):
+            if np.array_equal(sample, unique_sample):
+                unique_labels[b, label_vectors[a]] = 1
+                match_ids[b].append(a)
+                break
+
+    label_vectors = np.empty((out_maps.shape[0], match_ids))
+    for a in range(len(match_ids)):
+        for b in match_ids[a]:
+            label_vectors[b] = unique_labels[a]
+
+    label_vectors = label_vectors.astype(np.single)
+
+    return out_maps, label_vectors
 
 def train(data, labels, model, device, loss_fn, optimizer, verbose=True, batch_size=64):
     model.train()

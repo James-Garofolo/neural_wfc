@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 from hex_onehot import ONEHOT_LENGTH, hex_to_onehot
-from rules_network import whole_map_fc, get_data
+from rules_network import whole_map_fc
 from split_map import DIR_DATA, DIRNAME, DIR_MAPVECTORS_NP_OUTPUT
 import generate_map_image
 import random
@@ -138,13 +138,13 @@ class wave_function_collapse:
 		self.possibilities = np.ones_like(self.possibilities, dtype=np.intc) # start with every tile being possible
 		for rule in self.rules: # evaluate each rule
 			new_possibilities = np.copy(self.possibilities)
-			new_possibilities &= rule(self.collapsed_tiles) # eliminate the tiles it says to, leave previously eliminated tiles alone
+			tile_onehot = rule(self.collapsed_tiles) # eliminate the tiles it says to, leave previously eliminated tiles alone
+			new_possibilities &= tile_onehot
 			entropies = np.sum(new_possibilities, -1) # sum across tile vectors to get entropy calcs
 			lowest_entropy = np.min(entropies) # find lowest entropy
 
 			if lowest_entropy == 0: # if we ran out of options somewhere
 				break # don't consider this rule and stop
-				
 
 			elif lowest_entropy == 1: # if we've only got one option somewhere
 				self.possibilities = new_possibilities # save that
@@ -154,7 +154,7 @@ class wave_function_collapse:
 				self.possibilities = new_possibilities # save and keep going
 
 		entropies = np.sum(self.possibilities, -1) # sum across tile vectors to get entropy calcs
-		entropies[self.collapsed_tiles != self.undefined_tile] = self.undefined_tile # make sure filled tiles don't get counted
+		entropies[self.collapsed_tiles != self.undefined_tile] = self.undefined_tile + 1 # make sure filled tiles don't get counted
 		lowest_entropy = np.min(entropies) # find lowest entropy
 		lowest_coords = np.array(np.where(entropies == lowest_entropy)).T # get entropy coords as pair of column vectors
 		# If there are no tiles with entropy of 1, then pick just one randomly
@@ -197,20 +197,22 @@ def make_small_nn_rules(model, model_size, num_tiles, ideal_stride):
 	while fitting the shape of tile_ids
 	"""
 	def small_nn_rules(tile_ids):
-		out_probs = np.zeros([*tile_ids.shape, num_tiles])
-		num_steps = np.ceil((tile_ids.shape-model_size)/ideal_stride) 
-		for x in np.round(np.linspace(0, (tile_ids.shape[0]-model_size), num_steps[0])):
-			for y in np.round(np.linspace(0, (tile_ids.shape[1]-model_size), num_steps[1])):
+		out_probs = np.zeros([*tile_ids.shape, num_tiles], dtype=np.intc)
+		num_steps = [0,0]
+		num_steps[0] = int(np.ceil((tile_ids.shape[0]-model_size)/ideal_stride))
+		num_steps[1] = int(np.ceil((tile_ids.shape[1]-model_size)/ideal_stride))
+		for x in np.round(np.linspace(0, (tile_ids.shape[0]-model_size), num_steps[0])).astype(np.intc):
+			for y in np.round(np.linspace(0, (tile_ids.shape[1]-model_size), num_steps[1])).astype(np.intc):
 				# take a square from the map and infer on it
-				batch = torch.from_numpy(np.array([tile_ids[x:x+model_size-1, y:y+model_size-1]], dtype=int))
+				batch = torch.from_numpy(np.array([tile_ids[x:x+model_size, y:y+model_size]], dtype=int))
 				nn_prediction = model(batch)[0].detach().numpy()
 				threshold = np.mean(nn_prediction, -1)
 				threshold = np.moveaxis(np.tile(threshold, (nn_prediction.shape[2], 1, 1)), 0, -1)
 				tile_multihot = np.zeros_like(nn_prediction, dtype=np.intc)
 				np.greater(nn_prediction,threshold,tile_multihot)
-				out_probs[x:x+model_size-1, y:y+model_size-1] |= tile_multihot
-
-		return tile_multihot
+				out_probs[x:x+model_size, y:y+model_size] = tile_multihot
+				
+		return out_probs
 
 	return small_nn_rules		
 
@@ -220,27 +222,25 @@ if __name__ == '__main__':
 	#map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '0.npy'), allow_pickle=True)
 	
 	tile_vector_length = 90
-	wfc = wave_function_collapse((16,11), tile_vector_length)#, collapse_limit=1)
+	wfc = wave_function_collapse((20,20), tile_vector_length, collapse_limit=1)
 	print(tile_vector_length)
 	# Load the PyTorch model
-	model_file = os.path.join(DIRNAME, 'rules_gen_fc_exp.pt')
+	model_file = os.path.join(DIRNAME, 'rules_gen_7.pt')
 	with open(model_file, 'rb') as f:
 		model: whole_map_fc = torch.load(f, map_location=torch.device('cpu'))
 	
 	model.to('cpu') # just run on cpu to keep things simpler
 
-	def nn_rules(tile_ids):
+	"""def nn_rules(tile_ids):
 		batch = torch.from_numpy(np.array([tile_ids], dtype=int))
 		nn_prediction = model(batch)[0].detach().numpy()
 		threshold = np.mean(nn_prediction, -1)
 		threshold = np.moveaxis(np.tile(threshold, (nn_prediction.shape[2], 1, 1)), 0, -1)
 		tile_multihot = np.zeros_like(nn_prediction, dtype=np.intc)
 		np.greater(nn_prediction,threshold,tile_multihot)
-		return tile_multihot
+		return tile_multihot"""
 			
-
-
-	wfc.add_rule(nn_rules)
+	wfc.add_rule(make_small_nn_rules(model, 7, tile_vector_length, ideal_stride=3))
 
 	PATH_TILE = 1 # index of the walkable path tile
 	
