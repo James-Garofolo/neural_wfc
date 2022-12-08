@@ -371,11 +371,11 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
 
-    #with open("rules_gen_7.pt", 'rb') as f:
-    #    model: whole_map_fc = torch.load(f)
-    model = conv_window_maker(full_windows.shape[1], full_windows.shape[2], max_id+1, 0.5).to(device)
+    with open("rules_gen_7_1_out.pt", 'rb') as f:
+        model: whole_map_fc = torch.load(f)
+    #model = conv_window_maker(full_windows.shape[1], full_windows.shape[2], max_id+1, 0.5).to(device)
     loss = nn.BCELoss()
-    optim = torch.optim.Adam(model.parameters(), lr=0.001)
+    optim = torch.optim.Adam(model.parameters(), lr=0.00025)
 
     print('starting to train')
 
