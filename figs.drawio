@@ -1,0 +1,28 @@
+<mxfile host="65bd71144e">
+    <diagram id="ZUENsiRe6ovU90ceGxjv" name="Page-1">
+        <mxGraphModel dx="375" dy="174" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" background="#37474f" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="7" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#FF0080;fillColor=none;dashed=1;" vertex="1" parent="1">
+                    <mxGeometry x="170" y="50" width="220" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="200" y="80" width="160" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="4" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#33FF33;" vertex="1" parent="1">
+                    <mxGeometry x="170" y="50" width="70" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="5" value="" style="endArrow=none;html=1;" edge="1" parent="1">
+                    <mxGeometry width="50" height="50" relative="1" as="geometry">
+                        <mxPoint x="270" y="70" as="sourcePoint"/>
+                        <mxPoint x="320" y="20" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="6" value="" style="rounded=0;whiteSpace=wrap;html=1;strokeColor=#3333FF;fillColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="200" y="80" width="10" height="10" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

@@ -5,11 +5,12 @@ import numpy as np
 import pandas as pd
 import torch
 from hex_onehot import ONEHOT_LENGTH, hex_to_onehot
-from rules_network import whole_map_fc
+from rules_network import whole_map_fc, conv_window_maker
 from split_map import DIR_DATA, DIRNAME, DIR_MAPVECTORS_NP_OUTPUT
 import generate_map_image
 import random
 from sklearn.model_selection import train_test_split # tts for collapse limit
+from math import floor, ceil
 
 class wave_function_collapse:
 	
@@ -19,17 +20,20 @@ class wave_function_collapse:
 		map_shape: sdfdsf
 		num_possible_tiles: sdfsdf
 	"""
-	def __init__(self, map_shape, num_possible_tiles, collapse_limit = None, starting_tiles = None) -> None:
+	def __init__(self, map_shape, num_possible_tiles, collapse_limit = None, guess_multiple = False, limit_decay_rate = 1.0,
+				 starting_tiles = None) -> None:
 		self.rules = []
 		self.undefined_tile = num_possible_tiles # update later
 		self.possibilities = np.ones((map_shape[0], map_shape[1], num_possible_tiles))
+		self.guess_multiple = guess_multiple
+		self.limit_decay = limit_decay_rate
 		
 		if collapse_limit == None:
 			self.collapse_limit = map_shape[0]*map_shape[1]
 		else:
 			self.collapse_limit = collapse_limit
 
-		if starting_tiles == None:
+		if starting_tiles is None:
 			self.collapsed_tiles = np.ones(map_shape, dtype=int) * (self.undefined_tile)
 		else:
 			self.collapsed_tiles = starting_tiles
@@ -159,10 +163,12 @@ class wave_function_collapse:
 		lowest_coords = np.array(np.where(entropies == lowest_entropy)).T # get entropy coords as pair of column vectors
 		# If there are no tiles with entropy of 1, then pick just one randomly
 		print(f'Lowest entropy is {lowest_entropy}')
-		if lowest_entropy > 1:
+		if (lowest_entropy > 1) and (not self.guess_multiple):
 			return [lowest_coords[random.randint(0, len(lowest_coords)-1)]]
 		else:
 			if len(lowest_coords) > self.collapse_limit:
+
+				self.collapse_limit = int(self.collapse_limit*self.limit_decay)
 				ids = np.arange(len(lowest_coords))
 				# fun little trick to shuffle and split the indexes using tts
 				ids, _ = train_test_split(ids, train_size=self.collapse_limit)
@@ -212,22 +218,64 @@ def make_small_nn_rules(model, model_size, num_tiles, ideal_stride):
 				np.greater(nn_prediction,threshold,tile_multihot)
 				out_probs[x:x+model_size, y:y+model_size] = tile_multihot
 				
+		print(out_probs.shape[-1])
 		return out_probs
 
 	return small_nn_rules		
 
+
+def make_single_out_nn_rules(model, model_size, num_tiles):
+	def single_out_nn_rules(tile_ids):
+		out_probs = np.ones([*tile_ids.shape, num_tiles], dtype=np.intc)
+		buffer_size = floor(model_size/2)
+
+
+		for x in range(tile_ids.shape[0]):
+			for y in range(tile_ids.shape[1]):
+				if tile_ids[x,y] == num_tiles: # only infer on unknown tiles for speeeed
+					# take a square from the map and infer on it
+					batch = np.ones((model_size,model_size), dtype=np.intc) * num_tiles # make window of unknowns
+					# this stamps the map onto the window such that a buffer is leftover when necessary
+					batch[max(0, buffer_size-x):min(model_size, buffer_size+tile_ids.shape[0]-x),\
+						max(0, buffer_size-y):min(model_size, buffer_size+tile_ids.shape[1]-y)] = \
+							tile_ids[max(0,x-buffer_size):min(x+buffer_size+1,tile_ids.shape[0]),\
+							max(0,y-buffer_size):min(y+buffer_size+1,tile_ids.shape[1])].astype(np.intc)
+
+					batch = torch.from_numpy(np.array([batch]))
+					nn_prediction = model(batch)[0].detach().numpy()
+					threshold = np.mean(nn_prediction, -1)
+					tile_multihot = np.zeros_like(nn_prediction, dtype=np.intc)
+					tile_multihot[nn_prediction>threshold] = 1
+					if np.sum(tile_multihot) == 0:
+						print(nn_prediction)
+						
+					out_probs[x,y] = tile_multihot
+				
+		#print(np.sum(out_probs, -1))
+		return out_probs
+
+	return single_out_nn_rules	
 
 if __name__ == '__main__':	
 	# Get the shape of the maps
 	#map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '0.npy'), allow_pickle=True)
 	
 	tile_vector_length = 90
-	wfc = wave_function_collapse((20,20), tile_vector_length, collapse_limit=1)
+	#start_tiles = np.ones((256,88), dtype=int) * tile_vector_length
+	#start_tiles[0,:] = 45
+	#start_tiles[-1,:] = 45
+	#start_tiles[:,0] = 45
+	#start_tiles[:,-1] = 45
+
+	wfc = wave_function_collapse((256,88), tile_vector_length, collapse_limit=128, guess_multiple=True, limit_decay_rate=0.99)
 	print(tile_vector_length)
 	# Load the PyTorch model
-	model_file = os.path.join(DIRNAME, 'rules_gen_7.pt')
+	device = "cuda" if torch.cuda.is_available() else "cpu"
+	print(f"Using {device} device")
+
+	model_file = os.path.join(DIRNAME, 'rules_gen_7_1_out.pt')
 	with open(model_file, 'rb') as f:
-		model: whole_map_fc = torch.load(f, map_location=torch.device('cpu'))
+		model: conv_window_maker = torch.load(f, map_location=torch.device(device))
 	
 	model.to('cpu') # just run on cpu to keep things simpler
 
@@ -240,7 +288,8 @@ if __name__ == '__main__':
 		np.greater(nn_prediction,threshold,tile_multihot)
 		return tile_multihot"""
 			
-	wfc.add_rule(make_small_nn_rules(model, 7, tile_vector_length, ideal_stride=3))
+	#wfc.add_rule(make_small_nn_rules(model, 7, tile_vector_length, ideal_stride=3))
+	wfc.add_rule(make_single_out_nn_rules(model, 7, tile_vector_length))
 
 	PATH_TILE = 1 # index of the walkable path tile
 	
