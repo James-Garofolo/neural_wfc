@@ -381,11 +381,12 @@ if __name__ == "__main__":
 
     best_loss = None
     best_acc = 0
-    epochs = int(full_windows.shape[0]*2/500)
+    mini_batch_size = 500
+    epochs = int(full_windows.shape[0]*2/mini_batch_size)
     print(f"going to train for {epochs} epochs")
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
-        window_batch, _ = train_test_split(full_windows, train_size=500) # pick a minibatch from the windows
+        window_batch, _ = train_test_split(full_windows, train_size=mini_batch_size) # pick a minibatch from the windows
         data_windows, label_vectors = single_out_add_unknowns_no_overlaps(window_batch,50,max_id)
         train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_vectors, test_size=0.1)
         train_acc, train_loss = train(train_data, train_labels, model, device, loss, optim, False)
