@@ -371,9 +371,9 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
 
-    with open("rules_gen_7_1_out.pt", 'rb') as f:
-        model: whole_map_fc = torch.load(f)
-    #model = conv_window_maker(full_windows.shape[1], full_windows.shape[2], max_id+1, 0.5).to(device)
+    #with open("rules_gen_7_1_out.pt", 'rb') as f:
+    #    model: whole_map_fc = torch.load(f)
+    model = conv_window_maker(full_windows.shape[1], full_windows.shape[2], max_id+1, 0.5).to(device)
     loss = nn.BCELoss()
     optim = torch.optim.Adam(model.parameters(), lr=0.00025)
 
@@ -381,7 +381,8 @@ if __name__ == "__main__":
 
     best_loss = None
     best_acc = 0
-    epochs = 100
+    epochs = int(full_windows.shape[0]*2/500)
+    print(f"going to train for {epochs} epochs")
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
         window_batch, _ = train_test_split(full_windows, train_size=500) # pick a minibatch from the windows
@@ -392,7 +393,7 @@ if __name__ == "__main__":
         if (best_loss == None) or (best_loss > test_loss) or (test_acc > best_acc):
             best_loss = test_loss
             best_acc = test_acc
-            with open('rules_gen_7_1_out_multihot.pt', 'wb') as f:
+            with open(f'rules_gen_{full_windows.shape[1]}_1_out.pt', 'wb') as f:
                 torch.save(model, f)
         
         else:
