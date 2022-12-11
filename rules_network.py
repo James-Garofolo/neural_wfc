@@ -362,11 +362,11 @@ def test(data, labels, model, device, loss_fn):
 if __name__ == "__main__":    
     full_windows, max_id = get_data_ids(os.getcwd() + "/data/map_vectors/numpy", 22528)
     print("data in: ", full_windows.shape)
-    #data_windows, label_windows = single_out_add_unknowns(full_windows, 100, max_id)
-    #print("with unknowns added: ", data_windows.shape, label_windows.shape)
-    #print("max id:", max_id)
+    data_windows, label_windows = single_out_add_unknowns(full_windows, 100, max_id)
+    print("with unknowns added: ", data_windows.shape, label_windows.shape)
+    print("max id:", max_id)
 
-    #train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_windows, test_size=0.1)    
+    train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_windows, test_size=0.1)    
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
@@ -381,14 +381,14 @@ if __name__ == "__main__":
 
     best_loss = None
     best_acc = 0
-    mini_batch_size = 500
-    epochs = int(full_windows.shape[0]*2/mini_batch_size)
+    #mini_batch_size = 500
+    epochs = 100#int(full_windows.shape[0]*2/mini_batch_size)
     print(f"going to train for {epochs} epochs")
     for t in range(epochs):
         print(f"Epoch {t+1}\n-------------------------------")
-        window_batch, _ = train_test_split(full_windows, train_size=mini_batch_size) # pick a minibatch from the windows
-        data_windows, label_vectors = single_out_add_unknowns_no_overlaps(window_batch,50,max_id)
-        train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_vectors, test_size=0.1)
+        #window_batch, _ = train_test_split(full_windows, train_size=mini_batch_size) # pick a minibatch from the windows
+        #data_windows, label_vectors = single_out_add_unknowns_no_overlaps(window_batch,50,max_id)
+        #train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_vectors, test_size=0.1)
         train_acc, train_loss = train(train_data, train_labels, model, device, loss, optim, False)
         test_acc, test_loss = test(val_data, val_labels, model, device, loss)
         if (best_loss == None) or (best_loss > test_loss) or (test_acc > best_acc):
