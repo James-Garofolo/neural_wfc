@@ -11,7 +11,7 @@ import generate_map_image
 import random
 from sklearn.model_selection import train_test_split # tts for collapse limit
 from math import floor, ceil
-from consts import MAP_SIZE, IS_MULTIHOT
+from consts import MAP_SIZE, IS_MULTIHOT, output_map_size, initial_collapse_limit, collapse_limit_decay
 
 class wave_function_collapse:
 	
@@ -226,33 +226,44 @@ def make_small_nn_rules(model, model_size, num_tiles, ideal_stride):
 	return small_nn_rules		
 
 
-def make_single_out_nn_rules(model, model_size, num_tiles):
+def make_single_out_nn_rules(model, model_size, num_tiles, device):
 	def single_out_nn_rules(tile_ids):
 		out_probs = np.ones([*tile_ids.shape, num_tiles], dtype=np.intc)
 		buffer_size = floor(model_size/2)
-
+		
+		# batch for pytorch to run all of the inferences at once
+		batch = []
+		# to keep track of the x, y coordinates for each item in the batch, for looping later
+		coordinates = []
 
 		for x in range(tile_ids.shape[0]):
 			for y in range(tile_ids.shape[1]):
 				if tile_ids[x,y] == num_tiles: # only infer on unknown tiles for speeeed
 					# take a square from the map and infer on it
-					batch = np.ones((model_size,model_size), dtype=np.intc) * num_tiles # make window of unknowns
+					this_batch_item = np.ones((model_size,model_size), dtype=np.intc) * num_tiles # make window of unknowns
 					# this stamps the map onto the window such that a buffer is leftover when necessary
-					batch[max(0, buffer_size-x):min(model_size, buffer_size+tile_ids.shape[0]-x),\
+					this_batch_item[max(0, buffer_size-x):min(model_size, buffer_size+tile_ids.shape[0]-x),\
 						max(0, buffer_size-y):min(model_size, buffer_size+tile_ids.shape[1]-y)] = \
 							tile_ids[max(0,x-buffer_size):min(x+buffer_size+1,tile_ids.shape[0]),\
 							max(0,y-buffer_size):min(y+buffer_size+1,tile_ids.shape[1])].astype(np.intc)
-
-					batch = torch.from_numpy(np.array([batch]))
-					nn_prediction = model(batch)[0].detach().numpy()
-					threshold = np.mean(nn_prediction, -1)
-					tile_multihot = np.zeros_like(nn_prediction, dtype=np.intc)
-					tile_multihot[nn_prediction>threshold] = 1
-					if np.sum(tile_multihot) == 0:
-						print(f'threshold: {threshold}, prediction: {nn_prediction}')
-						
-					out_probs[x,y] = tile_multihot
+					
+					batch.append(this_batch_item)
+					coordinates.append((x, y))
+		
+		batch = torch.from_numpy(np.array(batch)).to(device)
+		nn_prediction = model(batch).cpu().detach().numpy()
+		# Process the predictions
+		for prediction, coords in zip(nn_prediction, coordinates):
+			x, y = coords
+			
+			threshold = np.mean(prediction, -1)
+			tile_multihot = np.zeros_like(prediction, dtype=np.intc)
+			tile_multihot[prediction>threshold] = 1
+			if np.sum(tile_multihot) == 0:
+				print(f'threshold: {threshold}, prediction: {prediction}')
 				
+			out_probs[x,y] = tile_multihot
+	
 		#print(np.sum(out_probs, -1))
 		return out_probs
 
@@ -270,7 +281,7 @@ if __name__ == '__main__':
 	#start_tiles[:,0] = 45
 	#start_tiles[:,-1] = 45
 
-	wfc = wave_function_collapse((20,20), tile_vector_length, collapse_limit=10, guess_multiple=True, limit_decay_rate=0.9)
+	wfc = wave_function_collapse(output_map_size, tile_vector_length, collapse_limit=initial_collapse_limit, guess_multiple=True, limit_decay_rate=collapse_limit_decay)
 	print(tile_vector_length)
 	# Load the PyTorch model
 	device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -283,7 +294,7 @@ if __name__ == '__main__':
 	with open(model_file, 'rb') as f:
 		model: conv_window_maker = torch.load(f, map_location=torch.device(device))
 	
-	model.to('cpu') # just run on cpu to keep things simpler
+	model.to(device) # just run on cpu to keep things simpler
 
 	"""def nn_rules(tile_ids):
 		batch = torch.from_numpy(np.array([tile_ids], dtype=int))
@@ -295,7 +306,7 @@ if __name__ == '__main__':
 		return tile_multihot"""
 			
 	#wfc.add_rule(make_small_nn_rules(model, 7, tile_vector_length, ideal_stride=3))
-	wfc.add_rule(make_single_out_nn_rules(model, MAP_SIZE, tile_vector_length))
+	wfc.add_rule(make_single_out_nn_rules(model, MAP_SIZE, tile_vector_length, device))
 
 	PATH_TILE = 1 # index of the walkable path tile
 	
