@@ -248,7 +248,7 @@ def make_single_out_nn_rules(model, model_size, num_tiles):
 					tile_multihot = np.zeros_like(nn_prediction, dtype=np.intc)
 					tile_multihot[nn_prediction>threshold] = 1
 					if np.sum(tile_multihot) == 0:
-						print(nn_prediction)
+						print(nn_prediction, threshold)
 						
 					out_probs[x,y] = tile_multihot
 				
@@ -269,13 +269,13 @@ if __name__ == '__main__':
 	#start_tiles[:,0] = 45
 	#start_tiles[:,-1] = 45
 
-	wfc = wave_function_collapse((50,50), tile_vector_length, collapse_limit=10, guess_multiple=True, limit_decay_rate=0.9)
+	wfc = wave_function_collapse((20,20), tile_vector_length, collapse_limit=10, guess_multiple=True, limit_decay_rate=0.9)
 	print(tile_vector_length)
 	# Load the PyTorch model
 	device = "cuda" if torch.cuda.is_available() else "cpu"
 	print(f"Using {device} device")
 
-	model_file = os.path.join(DIRNAME, 'rules_gen_7_1_out_multihot.pt')
+	model_file = os.path.join(DIRNAME, 'rules_gen_11_1_out.pt')
 	with open(model_file, 'rb') as f:
 		model: conv_window_maker = torch.load(f, map_location=torch.device(device))
 	
@@ -291,7 +291,7 @@ if __name__ == '__main__':
 		return tile_multihot"""
 			
 	#wfc.add_rule(make_small_nn_rules(model, 7, tile_vector_length, ideal_stride=3))
-	wfc.add_rule(make_single_out_nn_rules(model, 7, tile_vector_length))
+	wfc.add_rule(make_single_out_nn_rules(model, 11, tile_vector_length))
 
 	PATH_TILE = 1 # index of the walkable path tile
 	
