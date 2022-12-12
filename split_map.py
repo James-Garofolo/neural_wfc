@@ -3,6 +3,7 @@ from PIL import Image, ImageDraw
 import pandas as pd
 import numpy as np
 from hex_onehot import ONEHOT_LENGTH, hex_to_onehot
+from consts import STRIDE, MAP_SIZE
 
 # x/y size of each square tile, in px
 TILE_SIZE = 16
@@ -12,13 +13,13 @@ NUM_TILES_X = 16 * 16
 NUM_TILES_Y = 8 * 11
 
 # number of tiles per map (CAN change) - Default is 16 x 11
-MAP_SIZE_X = 7
-MAP_SIZE_Y = 7
-UNDEFINED_BUFFER = 3
+MAP_SIZE_X = MAP_SIZE
+MAP_SIZE_Y = MAP_SIZE
+UNDEFINED_BUFFER = int((MAP_SIZE - 1) / 2)
 
 # Stride between each map - Default is 16 x 11
-STRIDE_SIZE_X = 1
-STRIDE_SIZE_Y = 1
+STRIDE_SIZE_X = STRIDE
+STRIDE_SIZE_Y = STRIDE
 
 # number of maps in the overworld
 # NUM_MAPS_X = math.floor((NUM_TILES_X * (MAP_SIZE_X / STRIDE_SIZE_X)) / MAP_SIZE_X)

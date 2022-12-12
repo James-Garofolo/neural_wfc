@@ -11,6 +11,7 @@ import generate_map_image
 import random
 from sklearn.model_selection import train_test_split # tts for collapse limit
 from math import floor, ceil
+from consts import MAP_SIZE
 
 class wave_function_collapse:
 	
@@ -248,7 +249,7 @@ def make_single_out_nn_rules(model, model_size, num_tiles):
 					tile_multihot = np.zeros_like(nn_prediction, dtype=np.intc)
 					tile_multihot[nn_prediction>threshold] = 1
 					if np.sum(tile_multihot) == 0:
-						print(nn_prediction, threshold)
+						print(f'threshold: {threshold}, prediction: {nn_prediction}')
 						
 					out_probs[x,y] = tile_multihot
 				
@@ -275,7 +276,7 @@ if __name__ == '__main__':
 	device = "cuda" if torch.cuda.is_available() else "cpu"
 	print(f"Using {device} device")
 
-	model_file = os.path.join(DIRNAME, 'rules_gen_11_1_out.pt')
+	model_file = os.path.join(DIRNAME, f'rules_gen_{MAP_SIZE}_1_out.pt')
 	with open(model_file, 'rb') as f:
 		model: conv_window_maker = torch.load(f, map_location=torch.device(device))
 	
@@ -291,7 +292,7 @@ if __name__ == '__main__':
 		return tile_multihot"""
 			
 	#wfc.add_rule(make_small_nn_rules(model, 7, tile_vector_length, ideal_stride=3))
-	wfc.add_rule(make_single_out_nn_rules(model, 11, tile_vector_length))
+	wfc.add_rule(make_single_out_nn_rules(model, MAP_SIZE, tile_vector_length))
 
 	PATH_TILE = 1 # index of the walkable path tile
 	

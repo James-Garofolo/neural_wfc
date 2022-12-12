@@ -1,0 +1,3 @@
+MAP_SIZE = 11
+
+STRIDE = 1
