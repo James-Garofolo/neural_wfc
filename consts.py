@@ -1,3 +1,5 @@
-MAP_SIZE = 11
+MAP_SIZE = 9
 
 STRIDE = 1
+
+IS_MULTIHOT = True

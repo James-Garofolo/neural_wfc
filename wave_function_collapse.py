@@ -11,7 +11,7 @@ import generate_map_image
 import random
 from sklearn.model_selection import train_test_split # tts for collapse limit
 from math import floor, ceil
-from consts import MAP_SIZE
+from consts import MAP_SIZE, IS_MULTIHOT
 
 class wave_function_collapse:
 	
@@ -276,7 +276,10 @@ if __name__ == '__main__':
 	device = "cuda" if torch.cuda.is_available() else "cpu"
 	print(f"Using {device} device")
 
-	model_file = os.path.join(DIRNAME, f'rules_gen_{MAP_SIZE}_1_out.pt')
+	if IS_MULTIHOT:
+		model_file = os.path.join(DIRNAME, f'rules_gen_{MAP_SIZE}_1_out_multihot.pt')
+	else:
+		model_file = os.path.join(DIRNAME, f'rules_gen_{MAP_SIZE}_1_out.pt')
 	with open(model_file, 'rb') as f:
 		model: conv_window_maker = torch.load(f, map_location=torch.device(device))
 	
@@ -326,9 +329,11 @@ if __name__ == '__main__':
 		collapsed_tiles = wfc.step_with_rules()
 		
 		# Generate an image so we can visualize what the current map looks like
-		generate_map_image.from_indexes(collapsed_tiles, os.path.join(DIR_DATA, f'steps/step_{step}.png'))
+		if step % 10 == 0:
+			generate_map_image.from_indexes(collapsed_tiles, os.path.join(DIR_DATA, f'steps/step_{step}.png'))
 		step += 1
 	
+	generate_map_image.from_indexes(collapsed_tiles, os.path.join(DIR_DATA, f'steps/complete.png'))
 	
 	while True:
 		try:
