@@ -385,7 +385,7 @@ if __name__ == "__main__":
     best_acc = 0
     mini_batch_size = 500
     epochs = int(full_windows.shape[0]*3/mini_batch_size)
-    #print(f"going to train for {epochs} epochs")
+    print(f"going to train for {epochs} epochs")
     t = 0
     for t in range(epochs):
     # while True:
