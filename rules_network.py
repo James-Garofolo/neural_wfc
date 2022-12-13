@@ -4,6 +4,7 @@ from torch import nn
 from sklearn.model_selection import train_test_split
 import os
 import gc
+from consts import MAP_SIZE
 
 """
 change fc network guy to use embeddings with index inputs rather than one-hot vector inputs
@@ -196,6 +197,7 @@ def single_out_add_unknowns(in_maps: np.array, num_out_maps: int, max_id: int):
     out_maps = None
     label_vectors = None
     overlap_count = 0
+    print(f'num_out_maps: {num_out_maps}')
   
     middle = (int(np.ceil(in_maps.shape[-2]/2))-1, int(np.ceil(in_maps.shape[-1]/2))-1)
     for a, map in enumerate(in_maps):   
@@ -236,6 +238,7 @@ def single_out_add_unknowns_no_overlaps(in_maps: np.array, num_out_maps: int, ma
     out_maps = None
     label_vectors = None
     overlap_count = 0
+    print(f'num_out_maps: {num_out_maps}')
   
     middle = (int(np.ceil(in_maps.shape[-2]/2))-1, int(np.ceil(in_maps.shape[-1]/2))-1)
     for a, map in enumerate(in_maps):   
@@ -364,7 +367,11 @@ def test(data, labels, model, device, loss_fn):
 if __name__ == "__main__":    
     full_windows, max_id = get_data_ids(os.getcwd() + "/data/map_vectors/numpy", 22528)
     print("data in: ", full_windows.shape)
-    #data_windows, label_windows = single_out_add_unknowns(full_windows, (full_windows.shape[0]**2)*2, max_id)
+    
+    if full_windows.shape[1] != MAP_SIZE:
+        print(f'Disagreement between data and configured map size: {full_windows.shape[1]} vs {MAP_SIZE}')
+        exit()
+    #data_windows, label_windows = single_out_add_unknowns(full_windows, (MAP_SIZE**2)*2, max_id)
     #print("with unknowns added: ", data_windows.shape, label_windows.shape)
     print("max id:", max_id)
 
@@ -373,7 +380,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using {device} device")
 
-    with open(f"rules_gen_{full_windows.shape[1]}_1_out.pt", 'rb') as f:
+    with open(f"rules_gen_{MAP_SIZE}_1_out.pt", 'rb') as f:
         model: whole_map_fc = torch.load(f)
     #model = conv_window_maker(full_windows.shape[1], full_windows.shape[2], max_id+1, 0.5).to(device)
     loss = nn.BCELoss()
@@ -391,14 +398,14 @@ if __name__ == "__main__":
     # while True:
         print(f"Epoch {t+1}\n-------------------------------")
         window_batch, _ = train_test_split(full_windows, train_size=mini_batch_size) # pick a minibatch from the windows
-        data_windows, label_vectors = single_out_add_unknowns_no_overlaps(window_batch,int((full_windows.shape[0]**2)*1.5),max_id)
+        data_windows, label_vectors = single_out_add_unknowns_no_overlaps(window_batch,int((MAP_SIZE**2)*1.5),max_id)
         train_data, val_data, train_labels, val_labels = train_test_split(data_windows, label_vectors, test_size=0.1)
         train_acc, train_loss = train(train_data, train_labels, model, device, loss, optim, False)
         test_acc, test_loss = test(val_data, val_labels, model, device, loss)
         if (best_loss == None) or (best_loss > test_loss) or (test_acc > best_acc):
             best_loss = test_loss
             best_acc = test_acc
-            with open(f'rules_gen_{full_windows.shape[1]}_1_out_multihot.pt', 'wb') as f:
+            with open(f'rules_gen_{MAP_SIZE}_1_out_multihot.pt', 'wb') as f:
                 torch.save(model, f)
         
         else:
