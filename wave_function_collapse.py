@@ -252,12 +252,32 @@ def make_single_out_nn_rules(model, model_size, num_tiles, device):
 		
 		np_batch = np.array(batch)
 		batch = torch.from_numpy(np_batch).to(device)
-		nn_prediction = model(batch).cpu().detach().numpy()
+		nn_prediction_torch = model(batch)
+		nn_prediction = nn_prediction_torch.cpu().detach().numpy()
+		
+		threshold = torch.mean(nn_prediction_torch, dim=-1) \
+			.repeat((nn_prediction.shape[1], 1)).T # Take the mean across all elements in the batch, stretch to allow element-wise comparison
+		tile_multihot = torch.zeros_like(nn_prediction_torch, dtype=torch.int) # create zeros in the right shape
+		
+		tile_multihot[nn_prediction_torch > threshold] = 1 # comparing 2500x90 with 2500x1
+		
+		# place the output probabilities
+		for multihot, coords in zip(tile_multihot.cpu(), coordinates):
+			x, y = coords
+			out_probs[x, y] = multihot
+		
+		return out_probs
+		
+		# Sanity check, make sure no outputs have a sum of zero
+		# if (torch.any(torch.sum(tile_multihot, dim=1) == 0)):
+		# 	print('UH OH PANIC MODE')
+		# 	# if this does actually happen, i'll bother with the data outputting thing
+		# 	exit()
+		
 		i = 0 # for the crashdump
 		# Process the predictions
 		for prediction, coords in zip(nn_prediction, coordinates):
 			x, y = coords
-			
 			threshold = np.mean(prediction, -1)
 			tile_multihot = np.zeros_like(prediction, dtype=np.intc)
 			tile_multihot[prediction>threshold] = 1
@@ -289,11 +309,6 @@ if __name__ == '__main__':
 	#map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '0.npy'), allow_pickle=True)
 	
 	tile_vector_length = 90
-	#start_tiles = np.ones((256,88), dtype=int) * tile_vector_length
-	#start_tiles[0,:] = 45
-	#start_tiles[-1,:] = 45
-	#start_tiles[:,0] = 45
-	#start_tiles[:,-1] = 45
 
 	wfc = wave_function_collapse(output_map_size, tile_vector_length, collapse_limit=initial_collapse_limit, guess_multiple=True, limit_decay_rate=collapse_limit_decay)
 	print(tile_vector_length)
@@ -308,7 +323,7 @@ if __name__ == '__main__':
 	with open(model_file, 'rb') as f:
 		model: conv_window_maker = torch.load(f, map_location=torch.device(device))
 	
-	model.to(device) # just run on cpu to keep things simpler
+	model.to(device)
 
 	"""def nn_rules(tile_ids):
 		batch = torch.from_numpy(np.array([tile_ids], dtype=int))
