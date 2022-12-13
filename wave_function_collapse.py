@@ -1,4 +1,4 @@
-import os, sys, pathlib, math
+import os, sys, pathlib, math, shutil
 from types import FunctionType
 from PIL import Image, ImageDraw
 import numpy as np
@@ -11,7 +11,7 @@ import generate_map_image
 import random
 from sklearn.model_selection import train_test_split # tts for collapse limit
 from math import floor, ceil
-from consts import MAP_SIZE, IS_MULTIHOT, output_map_size, initial_collapse_limit, collapse_limit_decay
+from consts import MAP_SIZE, IS_MULTIHOT, output_map_size, initial_collapse_limit, collapse_limit_decay, image_output_frequency
 
 class wave_function_collapse:
 	
@@ -250,8 +250,10 @@ def make_single_out_nn_rules(model, model_size, num_tiles, device):
 					batch.append(this_batch_item)
 					coordinates.append((x, y))
 		
-		batch = torch.from_numpy(np.array(batch)).to(device)
+		np_batch = np.array(batch)
+		batch = torch.from_numpy(np_batch).to(device)
 		nn_prediction = model(batch).cpu().detach().numpy()
+		i = 0 # for the crashdump
 		# Process the predictions
 		for prediction, coords in zip(nn_prediction, coordinates):
 			x, y = coords
@@ -260,9 +262,15 @@ def make_single_out_nn_rules(model, model_size, num_tiles, device):
 			tile_multihot = np.zeros_like(prediction, dtype=np.intc)
 			tile_multihot[prediction>threshold] = 1
 			if np.sum(tile_multihot) == 0:
-				print(f'threshold: {threshold}, prediction: {prediction}')
-				
+				print('UH OH PANIC MODE')
+				print(f'x, y = {coords}, i={i}')
+				np.save('data/batch.npy', np_batch, allow_pickle=True)
+				np.save('data/probably-the-right-batch-index.npy', np_batch[i], allow_pickle=True)
+				np.save('data/prediction.npy', prediction, allow_pickle=True)
+				exit()
+
 			out_probs[x,y] = tile_multihot
+			i += 1
 	
 		#print(np.sum(out_probs, -1))
 		return out_probs
@@ -270,7 +278,13 @@ def make_single_out_nn_rules(model, model_size, num_tiles, device):
 	return single_out_nn_rules	
 
 if __name__ == '__main__':
-	pathlib.Path(os.path.join(DIR_DATA, 'steps')).mkdir(parents=True, exist_ok=True) 
+	# remove and recreate output folder
+	path = os.path.join(DIR_DATA, 'steps')
+	shutil.rmtree(path)
+	pathlib.Path(path).mkdir(parents=True, exist_ok=True) 
+	
+	print(f'Using model trained on {MAP_SIZE}x{MAP_SIZE}')
+	
 	# Get the shape of the maps
 	#map_zero = np.load(os.path.join(DIR_MAPVECTORS_NP_OUTPUT, '0.npy'), allow_pickle=True)
 	
@@ -340,7 +354,7 @@ if __name__ == '__main__':
 		collapsed_tiles = wfc.step_with_rules()
 		
 		# Generate an image so we can visualize what the current map looks like
-		if step % 10 == 0:
+		if step % image_output_frequency == 0:
 			generate_map_image.from_indexes(collapsed_tiles, os.path.join(DIR_DATA, f'steps/step_{step}.png'))
 		step += 1
 	
