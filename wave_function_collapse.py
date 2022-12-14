@@ -323,6 +323,7 @@ if __name__ == '__main__':
 		model_file = os.path.join(DIRNAME, f'rules_gen_{MAP_SIZE}_1_out_multihot.pt')
 	else:
 		model_file = os.path.join(DIRNAME, f'rules_gen_{MAP_SIZE}_1_out.pt')
+	print(f'Using {model_file}')
 	with open(model_file, 'rb') as f:
 		model: conv_window_maker = torch.load(f, map_location=torch.device(device))
 	
