@@ -300,7 +300,10 @@ def make_single_out_nn_rules(model, model_size, num_tiles, device):
 if __name__ == '__main__':
 	# remove and recreate output folder
 	path = os.path.join(DIR_DATA, 'steps')
-	shutil.rmtree(path)
+	try:
+		shutil.rmtree(path)
+	except:
+		pass
 	pathlib.Path(path).mkdir(parents=True, exist_ok=True) 
 	
 	print(f'Using model trained on {MAP_SIZE}x{MAP_SIZE}')
